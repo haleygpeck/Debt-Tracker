@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Debt Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Pacifico&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fff8fb;--bg2:#ffe6f0;--surface:rgba(255,253,254,.88);--text:#5a2d44;--muted:#9c6682;--line:#fbe0ec;
+  --accent:#e45c97;--accent2:#f58fbc;--accent-text:#ffffff;--good:#2f9d6a;--bad:#d6334f;--track:#fde6f0;--chip:#fff0f6;--shadow:0 6px 18px rgba(232,106,166,.13);
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#2e1220;--bg2:#4f1e3a;--surface:rgba(63,26,47,.84);--text:#ffe8f1;--muted:#e3a9c4;--line:#68304d;
+    --accent:#ff8fc0;--accent2:#ffb5d8;--accent-text:#3a0f26;--good:#6fdba5;--bad:#ff8a9b;--track:#68304d;--chip:#54243d;--shadow:0 6px 18px rgba(0,0,0,.3);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#2e1220;--bg2:#4f1e3a;--surface:rgba(63,26,47,.84);--text:#ffe8f1;--muted:#e3a9c4;--line:#68304d;
+  --accent:#ff8fc0;--accent2:#ffb5d8;--accent-text:#3a0f26;--good:#6fdba5;--bad:#ff8a9b;--track:#68304d;--chip:#54243d;--shadow:0 6px 18px rgba(0,0,0,.3);
+  color-scheme:dark;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(180deg,var(--bg2) 0,var(--bg) 320px) no-repeat,var(--bg);color:var(--text);font:16px/1.4 "Fredoka","Quicksand",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-text-size-adjust:100%}
+.wrap{position:relative;max-width:760px;margin:0 auto;padding:16px 14px 48px}
+h1{font-family:"Pacifico","Brush Script MT",cursive;font-weight:400;font-size:32px;line-height:1.25;margin:6px 0 8px;color:var(--accent);text-align:center}
+.sub{color:var(--muted);font-size:14px;line-height:1.4;margin:0 0 8px;text-align:center;min-height:40px;display:flex;align-items:center;justify-content:center;transition:opacity .4s}
+.sub.fade{opacity:0}
+.summary{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;min-width:0}
+.stat .k{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.stat .v{font-size:20px;font-weight:700;margin-top:2px;word-break:break-word}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+label.fld{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);flex:1;min-width:130px}
+input,select,button{font:inherit;color:var(--text)}
+input[type=number],input[type=date],input[type=search],input[type=text],select{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 10px;width:100%;min-width:0;max-width:100%}
+input[type=date]{-webkit-appearance:none;appearance:none;display:block;min-height:42px;text-align:left;font-size:16px}
+input[type=date]::-webkit-date-and-time-value{text-align:left}
+input:focus,select:focus,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.chip{border:0;background:var(--chip);border-radius:999px;padding:7px 12px;font-size:14px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-text);font-weight:600}
+.count{color:var(--muted);font-size:13px;margin:4px 2px 8px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:10px}
+.card.done{opacity:.75}
+.top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.name{font-weight:700;font-size:17px;margin:0}
+.meta{color:var(--muted);font-size:13px;margin-top:2px}
+.bal{text-align:right;flex-shrink:0}
+.bal b{font-size:20px;display:block}
+.bal span{color:var(--muted);font-size:12px}
+.bar{height:8px;background:var(--track);border-radius:99px;margin:12px 0;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .3s}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.hint{font-size:12px;margin-top:2px;color:var(--muted)}
+.hint.bad{color:var(--bad);font-weight:600}
+.hint.soon{color:var(--accent);font-weight:600}
+.mini{min-width:0}
+.mini .k{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+.mini .v{font-weight:600;font-size:15px;margin-top:2px}
+.mini input{padding:6px 8px;font-size:15px;font-weight:600}
+.log{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap}
+.log .amt{flex:2;min-width:110px}
+.log .dt{flex:2;min-width:130px}
+.btn{border:0;background:var(--accent);color:var(--accent-text);border-radius:10px;padding:10px 14px;font-weight:600;cursor:pointer}
+.btn.ghost{background:var(--chip);color:var(--text);font-weight:500}
+.paidtag{color:var(--good);font-weight:700}
+details{margin-top:10px}
+summary{cursor:pointer;color:var(--muted);font-size:14px}
+details.sched>summary{color:var(--text);font-weight:600}
+.hist{list-style:none;margin:8px 0 0;padding:0}
+.hist li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line);font-size:14px}
+.x{border:0;background:transparent;color:var(--bad);cursor:pointer;font-size:14px;padding:4px 8px}
+.empty{text-align:center;color:var(--muted);padding:28px 8px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--text);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;max-width:90%;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.show{opacity:1}
+.note{color:var(--muted);font-size:12.5px;margin:6px 0 0}
+.srows{margin-top:6px}
+.srow{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line)}
+.tick{width:32px;height:32px;border-radius:50%;border:2px solid var(--accent);background:transparent;color:var(--accent-text);font-weight:700;cursor:pointer;flex-shrink:0;padding:0}
+.srow.paid .tick{background:var(--good);border-color:var(--good)}
+.sinfo{flex:1;display:grid;grid-template-columns:1fr auto;gap:0 8px;text-align:left;background:transparent;border:0;padding:6px 4px;cursor:pointer;min-width:0}
+.sinfo .sa{font-weight:600;text-align:right}
+.sinfo .ss{grid-column:1/-1;font-size:12px;color:var(--muted)}
+.srow.late .ss{color:var(--bad);font-weight:600}
+.srow.paid .sl{text-decoration:line-through;color:var(--muted)}
+.editor{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px;margin:6px 0 10px;display:flex;flex-direction:column;gap:8px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.fld2{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);min-width:0}
+.sactions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.ccard{display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:10px;cursor:pointer}
+.ccard.done{opacity:.75}
+.ccard:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.ccard .name{display:block}
+.chev{color:var(--muted);font-size:20px;margin-left:6px}
+.meta.bad{color:var(--bad);font-weight:600}
+.backrow{margin:4px 0 10px}
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tab{flex:1;border:0;background:var(--chip);border-radius:12px;padding:11px 8px;font-weight:600;cursor:pointer}
+.tab[aria-pressed="true"]{background:var(--accent);color:var(--accent-text)}
+#cardsTab .panel .row{align-items:flex-end}
+#grand{margin-bottom:12px;background:linear-gradient(135deg,var(--accent2),var(--accent));border:0;color:var(--accent-text);text-align:center}
+#grand .k,#grand .meta{color:inherit;opacity:.92}
+#grand .v{font-size:30px}
+.card,.ccard{border-radius:22px}
+.stat,.panel{border-radius:20px}
+.card,.ccard,.stat,.panel{box-shadow:var(--shadow)}
+#grand{box-shadow:var(--shadow)}
+.editor{border-radius:16px}
+.btn{background:linear-gradient(135deg,var(--accent2),var(--accent));border-radius:999px;box-shadow:0 3px 10px rgba(214,64,127,.25)}
+.btn.ghost{box-shadow:none}
+.tab{border-radius:999px}
+.tab[aria-pressed="true"]{background:linear-gradient(135deg,var(--accent2),var(--accent));box-shadow:0 3px 10px rgba(214,64,127,.25)}
+.chip[aria-pressed="true"]{background:linear-gradient(135deg,var(--accent2),var(--accent))}
+.bar{height:10px}
+.bar i{background:linear-gradient(90deg,var(--accent2),var(--accent))}
+input[type=number],input[type=date],input[type=search],input[type=text],select{border-radius:14px}
+.toolbar{margin:0 0 10px}
+.theme{position:absolute;top:12px;right:14px;width:42px;height:42px;border-radius:50%;border:0;background:var(--chip);font-size:20px;line-height:1;cursor:pointer;box-shadow:var(--shadow);display:flex;align-items:center;justify-content:center;padding:0;z-index:5}
+.backrow .btn{margin-right:8px}
+#fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:9999}
+.btn:not(.ghost),.tab,.chip{position:relative;overflow:hidden}
+.btn::after,.tab::after,.chip::after{content:"";position:absolute;top:0;left:-70%;width:40%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.6),transparent);transform:skewX(-20deg);animation:shine var(--sp,6s) ease-in-out var(--sd,0s) infinite;pointer-events:none}
+.btn.ghost::after,.tab:not([aria-pressed="true"])::after,.chip:not([aria-pressed="true"])::after{background:linear-gradient(100deg,transparent,rgba(255,143,191,.4),transparent)}
+@keyframes shine{0%,80%{left:-70%}100%{left:140%}}
+@media (prefers-reduced-motion:reduce){.btn::after,.tab::after,.chip::after,.btn::before,.tab::before,.chip::before{animation:none!important;display:none}.srow.paid .tick{animation:none!important}}
+.btn.ghost{position:relative;overflow:hidden}
+.tick{width:38px;height:38px;border:0;border-radius:0;background:transparent;color:var(--accent);font-size:32px;line-height:1;padding:0;display:flex;align-items:center;justify-content:center}
+.srow.paid .tick{background:transparent;border:0;color:var(--accent);animation:beat 1.6s ease-in-out infinite}
+@keyframes beat{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}
+#floaty{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.wrap{z-index:1}
+.fh{position:absolute;bottom:-40px;left:var(--x,50%);font-size:var(--sz,18px);color:var(--accent2);opacity:0;animation:floatUp var(--dur,18s) linear var(--del,0s) infinite}
+@keyframes floatUp{0%{transform:translateY(0) translateX(0) rotate(-10deg);opacity:0}10%{opacity:.4}50%{transform:translateY(-55vh) translateX(18px) rotate(10deg)}90%{opacity:.3}100%{transform:translateY(-115vh) translateX(-14px) rotate(-8deg);opacity:0}}
+.card,.ccard{position:relative;border:2px solid var(--line);border-radius:28px;padding:22px 16px 16px}
+.card::before,.ccard::before{content:"\2661";position:absolute;top:4px;left:16px;font-size:16px;line-height:1;color:var(--accent2);opacity:.7;pointer-events:none}
+.card::after,.ccard::after{content:"\2661";position:absolute;bottom:8px;right:16px;font-size:16px;color:var(--accent2);opacity:.7;pointer-events:none}
+.stat,.panel{border-radius:24px}
+.sticker{display:inline-block;margin-top:4px;padding:2px 10px;border-radius:999px;background:var(--chip);color:var(--accent);font-size:12px;font-weight:600}
+.picks{display:flex;flex-wrap:wrap;gap:6px}
+.pick{border:0;background:var(--chip);border-radius:12px;font-size:20px;line-height:1;padding:7px 8px;cursor:pointer}
+@media (prefers-reduced-motion:reduce){#floaty{display:none}}
+</style>
+</head>
+<body>
+<div id="floaty" aria-hidden="true"></div>
+<div class="wrap" id="app">
+  <button class="theme" id="themeBtn" aria-label="Switch between light and dark mode">🌙</button>
+  <h1>Debt Tracker ✨</h1>
+  <p class="sub" id="status">Loading your plans…</p>
+  <div class="stat" id="grand"></div>
+  <div class="tabs" id="tabs">
+    <button class="tab" data-tab="affirm" aria-pressed="true">💗 Affirm plans</button>
+    <button class="tab" data-tab="cards" aria-pressed="false">💳 Other debts</button>
+  </div>
+
+  <div id="affirmTab">
+  <div id="browse">
+  <div class="summary" id="summary"></div>
+
+  <div class="panel">
+    <div class="row">
+      <label class="fld">Sort by
+        <select id="sort">
+          <option value="bal-asc">Balance: least to greatest</option>
+          <option value="bal-desc">Balance: greatest to least</option>
+          <option value="pay-asc">Payoff: soonest first</option>
+          <option value="pay-desc">Payoff: latest first</option>
+          <option value="due">Next due: soonest first</option>
+          <option value="name">Name: A to Z</option>
+        </select>
+      </label>
+      <label class="fld">Search
+        <input type="search" id="q" placeholder="e.g. Amazon">
+      </label>
+      <label class="fld">Default due date
+        <input type="date" id="nextDue">
+      </label>
+    </div>
+    <div class="chips" id="chips">
+      <button class="chip" data-f="all" aria-pressed="true">All</button>
+      <button class="chip" data-f="open" aria-pressed="false">Still owe</button>
+      <button class="chip" data-f="paid" aria-pressed="false">Paid off</button>
+      <button class="chip" data-f="auto" aria-pressed="false">AutoPay on</button>
+    </div>
+  </div>
+  <div class="count" id="count"></div>
+  </div>
+  <div id="list"></div>
+  </div>
+  <div id="cardsTab" hidden></div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<canvas id="fx" aria-hidden="true"></canvas>
+
+<script>
+(function(){
+  var $ = function(s){return document.querySelector(s);};
+  var money = function(n){return n.toLocaleString('en-US',{style:'currency',currency:'USD'});};
+  var r2 = function(n){return Math.round(n*100)/100;};
+  var plans = {}, settings = {}, cards = {}, cardPay = {}, ui = {sort:'bal-asc', filter:'all', q:'', edit:null, ed:null, auto:null, tab:'affirm', cardEdit:null, cd:null, cardSort:'bal-desc', confirmDel:null};
+  var drafts = {}, openHist = {}, openS = {}, db = null, uid = null, loaded = false, queues = {}, toastT = null;
+
+  function toast(msg){
+    var t = $('#toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastT); toastT = setTimeout(function(){t.classList.remove('show');}, 2800);
+  }
+  function enqueue(key, fn){
+    queues[key] = (queues[key] || Promise.resolve()).then(fn).catch(function(e){
+      toast('Couldn’t save that. ' + (e && e.message ? e.message : ''));
+    });
+    return queues[key];
+  }
+  function nid(){ return 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+  /* ---------- sparkle & confetti ---------- */
+  var lastTap = {x: window.innerWidth / 2, y: window.innerHeight / 2};
+  var fx = (function(){
+    var cv = document.getElementById('fx');
+    var ctx = cv && cv.getContext ? cv.getContext('2d') : null;
+    var reduce = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    var parts = [], raf = null, rainT = null;
+    var COLORS = ['#ff8fbf','#ffb3d5','#ffd1e6','#ffffff','#ffd86b','#f6a6ff','#ff6fa8','#e8579a'];
+    function size(){ if (!ctx) return; var d = window.devicePixelRatio || 1; cv.width = window.innerWidth * d; cv.height = window.innerHeight * d; ctx.setTransform(d,0,0,d,0,0); }
+    size(); window.addEventListener('resize', size);
+    function rnd(a, b){ return a + Math.random() * (b - a); }
+    function pick(a){ return a[Math.floor(Math.random() * a.length)]; }
+    function mk(x, y, vx, vy, g, kind, max){
+      return {x:x, y:y, vx:vx, vy:vy, g:g, kind:kind, c:pick(COLORS), r:rnd(3,7), rot:rnd(0,6.28), vr:rnd(-.25,.25), life:0, max:max, tw:rnd(0,6.28)};
+    }
+    function add(p){ parts.push(p); if (!raf) raf = requestAnimationFrame(tick); }
+    function burst(x, y, n, small){
+      if (reduce || !ctx) return;
+      for (var i = 0; i < n; i++) {
+        var a = rnd(0, 6.2832), s = small ? rnd(1.5, 5) : rnd(4, 11);
+        add(mk(x, y, Math.cos(a) * s, Math.sin(a) * s - (small ? 1 : 4), small ? .08 : .18,
+          pick(small ? ['star','dot','star'] : ['rect','rect','star','dot']), small ? rnd(30, 55) : rnd(90, 170)));
+      }
+    }
+    function rain(ms){
+      if (reduce || !ctx) return;
+      var end = Date.now() + ms;
+      clearInterval(rainT);
+      rainT = setInterval(function(){
+        if (Date.now() > end) { clearInterval(rainT); return; }
+        for (var i = 0; i < 4; i++) add(mk(rnd(0, window.innerWidth), -10, rnd(-.8,.8), rnd(1.2,3), .03, pick(['dot','dot','star','rect']), rnd(200, 320)));
+      }, 45);
+    }
+    function celebrate(){
+      var w = window.innerWidth, hh = window.innerHeight;
+      burst(w * .15, hh * .65, 55); burst(w * .85, hh * .65, 55); burst(w * .5, hh * .4, 80); rain(2800);
+    }
+    function tick(){
+      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+      var alive = [];
+      for (var i = 0; i < parts.length; i++) {
+        var p = parts[i]; p.life++;
+        p.vx *= .99; p.vy += p.g; p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+        if (p.life > p.max || p.y > window.innerHeight + 20) continue;
+        var fade = Math.min(1, (p.max - p.life) / 30);
+        var tw = p.kind === 'dot' ? (.55 + .45 * Math.sin(p.life * .35 + p.tw)) : 1;
+        ctx.save(); ctx.globalAlpha = Math.max(0, fade * tw); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.fillStyle = p.c;
+        if (p.kind === 'rect') ctx.fillRect(-p.r, -p.r / 2, p.r * 2, p.r);
+        else if (p.kind === 'dot') { ctx.beginPath(); ctx.arc(0, 0, p.r * .5, 0, 6.2832); ctx.fill(); }
+        else { var r = p.r * 1.6; ctx.beginPath(); ctx.moveTo(0,-r); ctx.quadraticCurveTo(0,0,r,0); ctx.quadraticCurveTo(0,0,0,r); ctx.quadraticCurveTo(0,0,-r,0); ctx.quadraticCurveTo(0,0,0,-r); ctx.fill(); }
+        ctx.restore(); alive.push(p);
+      }
+      parts = alive;
+      raf = parts.length ? requestAnimationFrame(tick) : null;
+      if (!parts.length) ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+    }
+    return {burst:burst, celebrate:celebrate};
+  })();
+  document.addEventListener('click', function(e){
+    var x = e.clientX, y = e.clientY, t = e.target.closest ? e.target.closest('.btn,.tab,.chip,.tick') : null;
+    if (t && !x && !y) { var r = t.getBoundingClientRect(); x = r.left + r.width / 2; y = r.top + r.height / 2; }
+    lastTap = {x:x, y:y};
+    if (t) fx.burst(x, y, 9, true);
+  }, true);
+
+  var PICKS = ['🛍️','🎀','💖','✨','🍔','🎫','📚','🏨','👗','👠','💄','🐾','📦','🛒','🚗','💳','🏠','✈️','🎧','💍'];
+  function emojiPicks(id){
+    var d = h('div',{class:'picks'});
+    PICKS.forEach(function(em){ d.appendChild(h('button',{class:'pick','data-act':'emojiPick','data-id':id,'data-emoji':em,'aria-label':'Use ' + em,text:em})); });
+    return d;
+  }
+  function emojiFor(p){
+    if (p.emoji) return p.emoji;
+    var n = (p.name || '').toLowerCase();
+    var map = [['doordash','🍔'],['stubhub','🎫'],['ticket','🎫'],['goodwill','👗'],['barnes','📚'],['hilton','🏨'],['hotel','🏨'],['ross','👗'],['vet','🐾'],['amazon','📦'],['maxx','🛍️'],['meijer','🛒'],['walmart','🛒'],['macy','👠'],['shein','👗'],['lovisa','💍'],['best buy','🎧'],['target','🎯'],['uber','🚗'],['sephora','💄'],['ulta','💄']];
+    for (var i = 0; i < map.length; i++) if (n.indexOf(map[i][0]) >= 0) return map[i][1];
+    if (p.isDebt) return {'Credit card':'💳','Personal loan':'💸','Auto loan':'🚗','Student loan':'🎓','Medical':'🏥','Family or friend':'👭'}[p.type || ''] || '✨';
+    return '🎀';
+  }
+  function pctPaid(p, rem){ return p.start > 0 ? (p.start - rem) / p.start * 100 : 100; }
+  function milestoneHit(before, after){
+    var T = [[75,'Almost there, 75% paid! 👑'],[50,'Halfway there! 💖'],[25,'25% paid down, great start! 🌸']];
+    for (var i = 0; i < T.length; i++) if (before < T[i][0] && after >= T[i][0]) return T[i][1];
+    return null;
+  }
+  function stickerEl(pct, done){
+    var t = '';
+    if (done) t = '🏆 Paid off';
+    else if (pct >= 75) t = '👑 75% paid';
+    else if (pct >= 50) t = '💖 Halfway there';
+    else if (pct >= 25) t = '🌸 25% paid';
+    return t ? h('span',{class:'sticker',text:t}) : null;
+  }
+
+  /* ---------- dates ---------- */
+  function isoOf(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+  function isoToday(){ return isoOf(new Date()); }
+  function isoToLocal(s){ var a = (s||'').split('-').map(Number); return (a.length===3 && !a.some(isNaN)) ? new Date(a[0],a[1]-1,a[2]) : null; }
+  function addMonths(d, n){
+    var x = new Date(d.getFullYear(), d.getMonth() + n, 1);
+    var last = new Date(x.getFullYear(), x.getMonth()+1, 0).getDate();
+    x.setDate(Math.min(d.getDate(), last)); return x;
+  }
+  function fmtDate(d){ return d ? d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—'; }
+
+  /* ---------- math ---------- */
+  function paidSum(p){ return (p.payments||[]).reduce(function(s,x){return s + (Number(x.amount)||0);},0); }
+  function remaining(p){ return Math.max(0, r2((p.start||0) - paidSum(p))); }
+  function monthly(p){
+    if (p.monthly > 0) return p.monthly;
+    if (p.isDebt) return p.min > 0 ? p.min : 0;
+    var left = Math.max(1, (p.total||1) - (p.done||0));
+    return r2((p.start||0) / left);
+  }
+  function sched(p){
+    return (p.sched||[]).slice().sort(function(a,b){
+      return (a.date||'9999').localeCompare(b.date||'9999') || (a.id < b.id ? -1 : 1);
+    });
+  }
+  function isPaidS(p, s){ return (p.payments||[]).some(function(x){return x.sid === s.id;}); }
+  function baseDate(p){
+    var d = p && p.due ? isoToLocal(p.due) : null;
+    if (d) return d;
+    d = settings.nextDue ? isoToLocal(settings.nextDue) : null;
+    if (d) return d;
+    var t = new Date(); return new Date(t.getFullYear(), t.getMonth(), t.getDate());
+  }
+  function info(p){
+    var rem = remaining(p), out = {rem:rem, left:0, payoff:null, next:null, nextAmt:null, hasSched:(p.sched||[]).length > 0};
+    if (rem < 0.005) return out;
+    var m = monthly(p);
+    var u = sched(p).filter(function(s){ return !isPaidS(p, s) && s.date && s.amount > 0; });
+    if (u.length) {
+      out.next = u[0].date; out.nextAmt = u[0].amount;
+      var cum = 0, last = null;
+      for (var i = 0; i < u.length; i++) {
+        cum = r2(cum + u[i].amount); last = isoToLocal(u[i].date);
+        if (cum >= rem - 0.005) { out.left = i + 1; out.payoff = last; return out; }
+      }
+      if (!(m > 0)) { out.left = u.length; out.payoff = last; return out; }
+      var extra = Math.max(1, Math.ceil((rem - cum) / m - 1e-9));
+      out.left = u.length + extra; out.payoff = addMonths(last, extra); return out;
+    }
+    if (!(m > 0)) { out.next = p.due || null; return out; }
+    out.left = Math.max(1, Math.ceil(rem / m - 1e-9));
+    out.payoff = addMonths(baseDate(p), out.left - 1);
+    out.next = p.due || null; out.nextAmt = Math.min(m, rem);
+    return out;
+  }
+
+  /* ---------- DOM helper ---------- */
+  function h(tag, attrs){
+    var el = document.createElement(tag);
+    if (attrs) Object.keys(attrs).forEach(function(k){
+      if (k === 'text') el.textContent = attrs[k];
+      else if (attrs[k] !== null && attrs[k] !== undefined) el.setAttribute(k, attrs[k]);
+    });
+    for (var i = 2; i < arguments.length; i++) { if (arguments[i]) el.appendChild(arguments[i]); }
+    return el;
+  }
+  function labeled(t, el){ return h('label',{class:'fld2'}, h('span',{text:t}), el); }
+
+  /* ---------- list / summary ---------- */
+  function dueT(x){ return x.inf.next ? isoToLocal(x.inf.next).getTime() : 8.64e15; }
+  function list(){
+    var arr = Object.keys(plans).map(function(id){ var p = plans[id]; var inf = info(p); return {id:id, p:p, inf:inf, rem:inf.rem}; });
+    var q = ui.q.trim().toLowerCase();
+    arr = arr.filter(function(x){
+      if (q && x.p.name.toLowerCase().indexOf(q) < 0) return false;
+      if (ui.filter === 'open') return x.rem > 0.004;
+      if (ui.filter === 'paid') return x.rem <= 0.004;
+      if (ui.filter === 'auto') return !!x.p.autopay;
+      return true;
+    });
+    var s = ui.sort;
+    function pt(x){ return x.inf.payoff ? x.inf.payoff.getTime() : -1; }
+    arr.sort(function(a,b){
+      var d = 0;
+      if (s === 'bal-asc') d = a.rem - b.rem;
+      else if (s === 'bal-desc') d = b.rem - a.rem;
+      else if (s === 'pay-asc') d = pt(a) - pt(b);
+      else if (s === 'pay-desc') d = pt(b) - pt(a);
+      else if (s === 'due') d = dueT(a) - dueT(b);
+      if (d === 0) d = a.p.name.localeCompare(b.p.name) || a.id.localeCompare(b.id);
+      return d;
+    });
+    return arr;
+  }
+
+  function renderSummary(){
+    var all = Object.keys(plans).map(function(id){return plans[id];});
+    var rem = 0, paid = 0, mo = 0, last = null, open = 0, week = 0;
+    var limit = new Date(); limit.setDate(limit.getDate() + 7); var lim = isoOf(limit);
+    all.forEach(function(p){
+      var inf = info(p); rem += inf.rem; paid += paidSum(p);
+      if (inf.rem > 0.004) {
+        open++; mo += Math.min(monthly(p), inf.rem);
+        if (inf.payoff && (!last || inf.payoff > last)) last = inf.payoff;
+        if (inf.next && inf.next <= lim) week += Math.min(inf.nextAmt || 0, inf.rem);
+      }
+    });
+    var box = $('#summary'); box.textContent = '';
+    function stat(k, v){ box.appendChild(h('div',{class:'stat'}, h('div',{class:'k',text:k}), h('div',{class:'v',text:v}))); }
+    stat('Total still owed', money(r2(rem)));
+    stat('Paid down so far', money(r2(paid)));
+    stat('Typical monthly total', money(r2(mo)));
+    stat('Plans still open', String(open) + ' of ' + all.length);
+    stat('Due in next 7 days', money(r2(week)));
+    stat('Debt-free date', open ? fmtDate(last) : (all.length ? 'Done! 🎉' : '—'));
+  }
+
+  /* ---------- schedule UI ---------- */
+  function editor(id, s){
+    var e = ui.ed || {};
+    var d = h('input',{type:'date','data-id':id,'data-act':'ed-date','aria-label':'Due date'}); d.value = e.date || '';
+    var a = h('input',{type:'number',step:'0.01',min:'0.01',inputmode:'decimal','data-id':id,'data-act':'ed-amt','aria-label':'Payment amount'}); a.value = e.amount || '';
+    var n = h('input',{type:'text','data-id':id,'data-act':'ed-note',placeholder:'e.g. paid from checking','aria-label':'Note'}); n.value = e.note || '';
+    var btns = h('div',{class:'row'},
+      h('button',{class:'btn','data-act':'saveS','data-id':id,text:'Save'}),
+      h('button',{class:'btn ghost','data-act':'cancelS','data-id':id,text:'Cancel'}));
+    if (s) btns.appendChild(h('button',{class:'x','data-act':'delS','data-id':id,'data-sid':s.id,text:'Delete'}));
+    return h('div',{class:'editor'}, h('div',{class:'grid2'}, labeled('Due date', d), labeled('Amount', a)), labeled('Note (optional)', n), btns);
+  }
+  function autoEditor(id){
+    var e = ui.auto;
+    var d = h('input',{type:'date','data-id':id,'data-act':'au-date','aria-label':'First due date'}); d.value = e.date || '';
+    var n = h('input',{type:'number',step:'1',min:'1',max:'60',inputmode:'numeric','data-id':id,'data-act':'au-n','aria-label':'Number of payments'}); n.value = e.n || '';
+    var a = h('input',{type:'number',step:'0.01',min:'0.01',inputmode:'decimal','data-id':id,'data-act':'au-amt','aria-label':'Amount each'}); a.value = e.amt || '';
+    return h('div',{class:'editor'},
+      h('div',{class:'grid2'}, labeled('First due date', d), labeled('Payments left', n)),
+      labeled('Amount each', a),
+      h('p',{class:'note',text:'Creates one payment a month. The last one is adjusted so the total matches what you still owe. Paid payments are kept; unpaid ones are replaced.'}),
+      h('div',{class:'row'},
+        h('button',{class:'btn','data-act':'autoGo','data-id':id,text:'Create schedule'}),
+        h('button',{class:'btn ghost','data-act':'autoCancel','data-id':id,text:'Cancel'})));
+  }
+  function schedSection(x){
+    var p = x.p, id = x.id, rows = sched(p), today = isoToday();
+    var paidCount = rows.filter(function(s){return isPaidS(p, s);}).length;
+    var det = h('details',{class:'sched','data-id':id,'data-kind':'sched'},
+      h('summary',{text:'Scheduled payments (' + rows.length + (rows.length ? ' · ' + paidCount + ' paid' : '') + ')'}));
+    var shouldOpen = openS[id] !== undefined ? openS[id] : (ui.view === id || ui.dview === id);
+    if (shouldOpen || (ui.edit && ui.edit.id === id) || (ui.auto && ui.auto.id === id)) det.setAttribute('open','');
+    var box = h('div',{class:'srows'});
+    if (!rows.length) box.appendChild(h('p',{class:'note',text:'Nothing scheduled yet. Add payments one at a time, or auto-fill them from a first due date.'}));
+    rows.forEach(function(s, i){
+      var paid = isPaidS(p, s);
+      var late = !paid && s.date && s.date < today;
+      var row = h('div',{class:'srow' + (paid ? ' paid' : '') + (late ? ' late' : '')},
+        h('button',{class:'tick','data-act':'toggle','data-id':id,'data-sid':s.id,'aria-label':(paid ? 'Mark unpaid: payment ' : 'Mark paid: payment ') + (i+1),text:paid ? '♥' : '♡'}),
+        h('button',{class:'sinfo','data-act':'editS','data-id':id,'data-sid':s.id,'aria-label':'Edit payment ' + (i+1)},
+          h('span',{class:'sl',text:'#' + (i+1) + ' · ' + (s.date ? fmtDate(isoToLocal(s.date)) : 'No date')}),
+          h('span',{class:'sa',text:money(s.amount || 0)}),
+          h('span',{class:'ss',text: paid ? 'Paid' : (late ? 'Overdue' : (s.note || ''))})));
+      box.appendChild(row);
+      if (ui.edit && ui.edit.id === id && ui.edit.sid === s.id) box.appendChild(editor(id, s));
+    });
+    if (ui.edit && ui.edit.id === id && ui.edit.sid === 'new') box.appendChild(editor(id, null));
+    if (ui.auto && ui.auto.id === id) box.appendChild(autoEditor(id));
+    box.appendChild(h('div',{class:'sactions'},
+      h('button',{class:'btn ghost','data-act':'addS','data-id':id,text:'+ Add scheduled payment'}),
+      h('button',{class:'btn ghost','data-act':'autoOpen','data-id':id,text:'Auto-fill schedule'})));
+    det.appendChild(box);
+    return det;
+  }
+
+  /* ---------- card ---------- */
+  function card(x){
+    var p = x.p, id = x.id, rem = x.rem, inf = x.inf, done = rem <= 0.004;
+    var pct = p.start > 0 ? Math.min(100, Math.max(0, (p.start - rem) / p.start * 100)) : 100;
+    var bar = h('i'); bar.style.width = pct.toFixed(1) + '%';
+    var d = drafts[id] || {};
+    var m = monthly(p);
+
+    var mInput = h('input',{type:'number',step:'0.01',min:'0.01',inputmode:'decimal','data-id':id,'data-act':'monthly','aria-label':'Typical payment for ' + p.name});
+    mInput.value = (p.monthly > 0 ? p.monthly : m).toFixed(2);
+
+    var dueBox = h('div',{class:'mini'}, h('div',{class:'k',text:'Next due'}));
+    var hint = h('div',{class:'hint'});
+    if (inf.hasSched) {
+      dueBox.appendChild(h('div',{class:'v',text: done ? '—' : (inf.next ? fmtDate(isoToLocal(inf.next)) + (inf.nextAmt ? ' · ' + money(inf.nextAmt) : '') : 'None left')}));
+    } else {
+      var dInput = h('input',{type:'date','data-id':id,'data-act':'due','aria-label':'Due date for ' + p.name});
+      dInput.value = p.due || ''; dueBox.appendChild(dInput);
+    }
+    if (!done) {
+      if (!inf.next) { if (!inf.hasSched) hint.textContent = 'Set a due date'; }
+      else {
+        var diff = Math.round((isoToLocal(inf.next) - isoToLocal(isoToday())) / 864e5);
+        if (diff < 0) { hint.className = 'hint bad'; hint.textContent = 'Overdue by ' + (-diff) + (diff === -1 ? ' day' : ' days'); }
+        else if (diff <= 7) { hint.className = 'hint soon'; hint.textContent = diff === 0 ? 'Due today' : 'Due in ' + diff + (diff === 1 ? ' day' : ' days'); }
+      }
+    }
+    dueBox.appendChild(hint);
+
+    var amt = h('input',{type:'number',step:'0.01',min:'0.01',inputmode:'decimal',placeholder:'Amount paid',class:'amt','data-id':id,'data-act':'amt','aria-label':'Extra payment toward ' + p.name});
+    if (d.amt) amt.value = d.amt;
+    var dt = h('input',{type:'date',class:'dt','data-id':id,'data-act':'date','aria-label':'Payment date'});
+    dt.value = d.date || isoToday();
+
+    var pays = (p.payments||[]).slice().sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+    var ul = h('ul',{class:'hist'});
+    if (!pays.length) ul.appendChild(h('li',{text:'No payments logged yet.'}));
+    pays.forEach(function(pay){
+      ul.appendChild(h('li',{}, h('span',{text: fmtDate(isoToLocal(pay.date)) + ' · ' + money(pay.amount) + (pay.sid ? ' · scheduled' : '')}),
+        h('button',{class:'x','data-act':'undo','data-id':id,'data-pid':pay.id,'aria-label':'Remove this payment',text:'Remove'})));
+    });
+    var det = h('details',{'data-id':id,'data-kind':'hist'}, h('summary',{text:'Payment history (' + pays.length + ')'}), ul);
+    if (openHist[id]) det.setAttribute('open','');
+
+    var logRow = done
+      ? h('p',{class:'paidtag',text:'Paid off 🎉'})
+      : h('div',{class:'log'}, amt, dt,
+          h('button',{class:'btn','data-act':'log','data-id':id,text:'Log extra payment'}),
+          (m > 0 ? h('button',{class:'btn ghost','data-act':'fill','data-id':id,text:'Use ' + money(Math.min(m, rem))}) : null));
+
+    return h('div',{class:'card' + (done ? ' done' : ''),'data-card':id},
+      h('div',{class:'top'},
+        h('div',{}, h('p',{class:'name',text:emojiFor(p) + ' ' + p.name}), stickerEl(pct, done),
+          h('div',{class:'meta',text: p.isDebt ? ((p.type || 'Debt') + (p.apr > 0 ? ' · APR ' + p.apr + '%' : '')) : ((p.done||0) + ' of ' + (p.total||0) + ' payments when added · AutoPay ' + (p.autopay ? 'on' : 'off'))})),
+        h('div',{class:'bal'}, h('b',{text:money(rem)}), h('span',{text:'remaining'}))),
+      h('div',{class:'bar'}, bar),
+      h('div',{class:'stats'},
+        h('div',{class:'mini'}, h('div',{class:'k',text:'Typical payment'}), mInput),
+        dueBox,
+        h('div',{class:'mini'}, h('div',{class:'k',text:'Payments left'}), h('div',{class:'v',text:String(inf.left)})),
+        h('div',{class:'mini'}, h('div',{class:'k',text:'Est. payoff'}), h('div',{class:'v',text: done ? 'Done' : fmtDate(inf.payoff)}))),
+      schedSection(x), logRow, det);
+  }
+
+  function planEditor(id){
+    var e = ui.pd || {};
+    function inp(act, type, val, step){
+      var i = h('input',{type:type,'data-act':act,'data-id':id,step:step || null,min:type === 'number' ? '0' : null,inputmode:type === 'number' ? 'decimal' : null});
+      i.value = (val === undefined || val === null) ? '' : val; return i;
+    }
+    var sel = h('select',{'data-act':'pf-auto','data-id':id,'aria-label':'AutoPay'});
+    [['off','AutoPay off'],['on','AutoPay on']].forEach(function(o){ sel.appendChild(h('option',{value:o[0],text:o[1]})); });
+    sel.value = e.autopay || 'off';
+    return h('div',{class:'card'}, h('div',{class:'editor'},
+      labeled('Plan name', inp('pf-name','text',e.name)),
+      labeled('Emoji (optional)', inp('pf-emoji','text',e.emoji)), emojiPicks(id),
+      h('div',{class:'grid2'}, labeled('Balance remaining', inp('pf-bal','number',e.balance,'0.01')), labeled('AutoPay', sel)),
+      h('div',{class:'grid2'}, labeled('Payments made', inp('pf-done','number',e.done,'1')), labeled('Total payments', inp('pf-total','number',e.total,'1'))),
+      h('div',{class:'row'},
+        h('button',{class:'btn','data-act':'pSave','data-id':id,text:'Save'}),
+        h('button',{class:'btn ghost','data-act':'pCancel','data-id':id,text:'Cancel'}))));
+  }
+  function savePlan(id){
+    if (!db) return toast('Saving isn’t available right now.');
+    var e = ui.pd || {}, p = getP(id), name = (e.name || '').trim();
+    var bal = r2(parseFloat(e.balance)), done = parseInt(e.done, 10), total = parseInt(e.total, 10);
+    if (!name) return toast('Give the plan a name.');
+    if (!isFinite(bal) || bal < 0) return toast('Enter the balance remaining (0 or more).');
+    if (!(done >= 0)) done = 0;
+    if (!(total >= 1)) total = Math.max(1, done);
+    var em = Array.from((e.emoji || '').trim()).slice(0, 3).join('');
+    if (id === 'new') {
+      var newId = 'plan-' + nid();
+      var obj = {name:name, emoji:em, done:done, total:total, autopay:e.autopay === 'on', start:bal, payments:[], sched:[]};
+      enqueue(newId, function(){ return planRef(newId).set(obj); });
+    } else {
+      save(id, {name:name, emoji:em, done:done, total:total, autopay:e.autopay === 'on', start:r2(bal + paidSum(p))});
+    }
+    ui.pedit = null; ui.pd = null; render();
+    toast('Saved ' + name + '.');
+  }
+  function compactCard(x){
+    var p = x.p, id = x.id, inf = x.inf, rem = x.rem, done = rem <= 0.004;
+    var pct = p.start > 0 ? Math.min(100, Math.max(0, (p.start - rem) / p.start * 100)) : 100;
+    var bar = h('i'); bar.style.width = pct.toFixed(1) + '%';
+    var late = !done && inf.next && inf.next < isoToday();
+    var sub = done ? 'Paid off 🎉' : (inf.next ? (late ? 'Overdue since ' : 'Next: ') + fmtDate(isoToLocal(inf.next)) + (inf.nextAmt ? ' · ' + money(inf.nextAmt) : '') : 'No due date yet');
+    var rows = p.sched || [], paidN = rows.filter(function(s){ return isPaidS(p, s); }).length;
+    var line = rows.length ? (paidN + ' of ' + rows.length + ' scheduled payments paid') : 'Tap to add scheduled payments';
+    return h('div',{class:'ccard' + (done ? ' done' : ''),role:'button',tabindex:'0','data-act':'open','data-id':id,'aria-label':'Open ' + p.name},
+      h('div',{class:'top'},
+        h('div',{}, h('span',{class:'name',text:emojiFor(p) + ' ' + p.name}), stickerEl(pct, done), h('div',{class:'meta' + (late ? ' bad' : ''),text:sub})),
+        h('div',{class:'bal'}, h('b',{text:money(rem)}), h('span',{text: done ? '' : 'Payoff ' + fmtDate(inf.payoff)}))),
+      h('div',{class:'bar'}, bar),
+      h('div',{class:'meta',text:line + '  ›'}));
+  }
+
+  /* ---------- credit cards tab ---------- */
+  var TYPES = ['Credit card','Personal loan','Auto loan','Student loan','Medical','Family or friend','Other'];
+  function pos(v){ var n = parseFloat(v); return n > 0 ? r2(n) : 0; }
+  function cardEditor(id){
+    var e = ui.cd || {};
+    function inp(act, type, val, ph){
+      var i = h('input',{type:type,'data-act':act,'data-id':id,placeholder:ph || '',step:type === 'number' ? '0.01' : null,min:type === 'number' ? '0' : null,inputmode:type === 'number' ? 'decimal' : null});
+      i.value = (val === undefined || val === null) ? '' : val; return i;
+    }
+    var btns = h('div',{class:'row'},
+      h('button',{class:'btn','data-act':'cSave',text:'Save'}),
+      h('button',{class:'btn ghost','data-act':'cCancel',text:'Cancel'}));
+    if (id !== 'new') btns.appendChild(h('button',{class:'x','data-act':'cDel','data-id':id,text: ui.confirmDel === id ? 'Tap again to delete' : 'Delete'}));
+    var isCard = (e.type || 'Credit card') === 'Credit card';
+    var ts = h('select',{'data-act':'cf-type','data-id':id,'aria-label':'Debt type'});
+    TYPES.forEach(function(t){ ts.appendChild(h('option',{value:t,text:t})); });
+    ts.value = e.type || 'Credit card';
+    return h('div',{class:'editor'},
+      labeled('Debt name', inp('cf-name','text',e.name,'e.g. Chase card, car loan')),
+      labeled('Emoji (optional)', inp('cf-emoji','text',e.emoji)), emojiPicks(id),
+      labeled('Type', ts),
+      h('div',{class:'grid2'}, labeled('Balance', inp('cf-bal','number',e.balance)), isCard ? labeled('Credit limit (optional)', inp('cf-limit','number',e.limit)) : labeled('Original amount (optional)', inp('cf-orig','number',e.orig))),
+      h('div',{class:'grid2'}, labeled('APR % (optional)', inp('cf-apr','number',e.apr)), labeled('Minimum payment (optional)', inp('cf-min','number',e.min))),
+      labeled('Payment due date (optional)', inp('cf-due','date',e.due)),
+      btns);
+  }
+  function cardItem(x){
+    var c = x.c, id = x.id, bal = c.balance || 0;
+    if (ui.cardEdit === id) return h('div',{class:'card'}, cardEditor(id));
+    var bits = [c.type || 'Credit card'];
+    if (c.orig > 0) bits.push('Started at ' + money(c.orig) + ' · ' + Math.max(0, Math.round((1 - bal / c.orig) * 100)) + '% paid off');
+    if (c.limit > 0) bits.push('Limit ' + money(c.limit) + ' · ' + Math.round(bal / c.limit * 100) + '% used');
+    if (c.apr > 0) bits.push('APR ' + c.apr + '%');
+    var parts = [], cls = '';
+    if (c.min > 0) parts.push('Minimum ' + money(c.min));
+    if (c.due) {
+      parts.push('Due ' + fmtDate(isoToLocal(c.due)));
+      var diff = Math.round((isoToLocal(c.due) - isoToLocal(isoToday())) / 864e5);
+      if (bal > 0 && diff < 0) { cls = ' bad'; parts.push('past that date'); }
+      else if (bal > 0 && diff <= 7) parts.push(diff === 0 ? 'today' : 'in ' + diff + (diff === 1 ? ' day' : ' days'));
+    }
+    var pay = h('input',{type:'number',step:'0.01',min:'0.01',inputmode:'decimal',placeholder:'Payment amount',class:'amt','data-act':'cp','data-id':id,'aria-label':'Payment toward ' + c.name});
+    if (cardPay[id]) pay.value = cardPay[id];
+    var el = h('div',{class:'card'},
+      h('div',{class:'top'},
+        h('div',{}, h('p',{class:'name',text:c.name}), h('div',{class:'meta',text: bits.join(' · ') || 'No limit or APR added'})),
+        h('div',{class:'bal'}, h('b',{text:money(bal)}), h('span',{text:'balance'}))));
+    if (parts.length) el.appendChild(h('div',{class:'meta' + cls,text:parts.join(' · ')}));
+    el.appendChild(h('div',{class:'log'}, pay,
+      h('button',{class:'btn','data-act':'cPay','data-id':id,text:'Log payment'}),
+      h('button',{class:'btn ghost','data-act':'cEdit','data-id':id,text:'Edit'})));
+    if (c.updated) el.appendChild(h('div',{class:'meta',text:'Updated ' + fmtDate(isoToLocal(c.updated))}));
+    return el;
+  }
+  function debtItem(x){
+    var id = x.id, p = debtP(id), inf = info(p), bal = inf.rem;
+    var pct = p.start > 0 ? Math.min(100, Math.max(0, (p.start - bal) / p.start * 100)) : 100;
+    var bar = h('i'); bar.style.width = pct.toFixed(1) + '%';
+    var bits = [p.type || 'Credit card'];
+    if (p.limit > 0) bits.push(Math.round(bal / p.limit * 100) + '% of limit used');
+    if (p.apr > 0) bits.push('APR ' + p.apr + '%');
+    var late = bal > 0.004 && inf.next && inf.next < isoToday();
+    var line;
+    if (bal <= 0.004) line = 'Paid off 🎉';
+    else if (inf.next) line = (late ? 'Overdue since ' : 'Next: ') + fmtDate(isoToLocal(inf.next)) + (inf.nextAmt ? ' · ' + money(inf.nextAmt) : '') + (inf.payoff ? ' · Payoff ' + fmtDate(inf.payoff) : '');
+    else line = 'Tap to schedule payments';
+    return h('div',{class:'ccard' + (bal <= 0.004 ? ' done' : ''),role:'button',tabindex:'0','data-act':'dOpen','data-id':id,'aria-label':'Open ' + p.name},
+      h('div',{class:'top'},
+        h('div',{}, h('span',{class:'name',text:emojiFor(p) + ' ' + p.name}), stickerEl(pct, bal <= 0.004), h('div',{class:'meta',text:bits.join(' · ')})),
+        h('div',{class:'bal'}, h('b',{text:money(bal)}), h('span',{text:'balance'}))),
+      h('div',{class:'bar'}, bar),
+      h('div',{class:'meta' + (late ? ' bad' : ''),text:line}));
+  }
+  function renderCards(){
+    if (ui.dview && !cards[ui.dview] && loaded) ui.dview = null;
+    if (!(ui.dview && cards[ui.dview])) { renderDebtList(); return; }
+    var host = $('#cardsTab'), ae = document.activeElement, key = null, selS = null, selE = null;
+    if (ae && ae.tagName === 'INPUT' && host.contains(ae) && ae.getAttribute('data-act')) {
+      key = ae.getAttribute('data-act') + '|' + (ae.getAttribute('data-id') || '');
+      try { selS = ae.selectionStart; selE = ae.selectionEnd; } catch(e){}
+    }
+    host.textContent = '';
+    var id = ui.dview, dp = debtP(id), dinf = info(dp);
+    host.appendChild(h('div',{class:'backrow'}, h('button',{class:'btn ghost','data-act':'dBack',text:'← All debts'})));
+    host.appendChild(card({p:dp, id:id, inf:dinf, rem:dinf.rem}));
+    if (ui.cardEdit === id) host.appendChild(h('div',{class:'card'}, cardEditor(id)));
+    else host.appendChild(h('div',{class:'backrow'}, h('button',{class:'btn ghost','data-act':'cEdit','data-id':id,text:'Edit details'})));
+    if (key) {
+      var kp = key.split('|');
+      var el = host.querySelector('input[data-act="' + kp[0] + '"][data-id="' + kp[1] + '"]');
+      if (el) { el.focus(); try { if (selS !== null) el.setSelectionRange(selS, selE); } catch(e){} }
+    }
+  }
+  function renderDebtList(){
+    var host = $('#cardsTab'), ae = document.activeElement, key = null, selS = null, selE = null;
+    if (ae && ae.tagName === 'INPUT' && host.contains(ae) && ae.getAttribute('data-act')) {
+      key = ae.getAttribute('data-act') + '|' + (ae.getAttribute('data-id') || '');
+      try { selS = ae.selectionStart; selE = ae.selectionEnd; } catch(e){}
+    }
+    host.textContent = '';
+    var arr = Object.keys(cards).map(function(id){ return {id:id, c:cards[id]}; });
+    var total = 0, mins = 0, lim = 0, limBal = 0;
+    arr.forEach(function(x){ var c = x.c; total += c.balance || 0; mins += c.min || 0; if (c.limit > 0) { lim += c.limit; limBal += c.balance || 0; } });
+    var s = ui.cardSort;
+    arr.sort(function(a,b){
+      var d = 0;
+      if (s === 'bal-asc') d = (a.c.balance||0) - (b.c.balance||0);
+      else if (s === 'bal-desc') d = (b.c.balance||0) - (a.c.balance||0);
+      else if (s === 'due') d = (info(debtP(a.id)).next || a.c.due || '9999').localeCompare(info(debtP(b.id)).next || b.c.due || '9999');
+      else if (s === 'type') d = (a.c.type || '').localeCompare(b.c.type || '');
+      if (!d) d = (a.c.name||'').localeCompare(b.c.name||'');
+      return d;
+    });
+    var sum = h('div',{class:'summary'});
+    function stat(k, v){ sum.appendChild(h('div',{class:'stat'}, h('div',{class:'k',text:k}), h('div',{class:'v',text:v}))); }
+    stat('Total other debts', money(r2(total)));
+    stat('Minimums', mins > 0 ? money(r2(mins)) : '—');
+    stat('Card credit used', lim > 0 ? Math.round(limBal / lim * 100) + '% of ' + money(lim) : '—');
+    stat('Debts', String(arr.length));
+    host.appendChild(sum);
+    var sel = h('select',{'data-act':'csort','aria-label':'Sort cards'});
+    [['bal-desc','Balance: greatest to least'],['bal-asc','Balance: least to greatest'],['due','Due date: soonest first'],['type','Type'],['name','Name: A to Z']].forEach(function(o){
+      var op = h('option',{value:o[0],text:o[1]}); sel.appendChild(op);
+    });
+    sel.value = ui.cardSort;
+    host.appendChild(h('div',{class:'panel'}, h('div',{class:'row'},
+      h('label',{class:'fld',text:'Sort by'}, sel),
+      h('button',{class:'btn','data-act':'cAdd',text:'+ Add debt'}))));
+    if (ui.cardEdit === 'new') host.appendChild(h('div',{class:'card'}, cardEditor('new')));
+    if (!loaded) host.appendChild(h('div',{class:'empty',text:'Loading…'}));
+    else if (!arr.length && ui.cardEdit !== 'new') host.appendChild(h('div',{class:'empty',text:'No other debts yet. Tap + Add debt to enter one.'}));
+    else arr.forEach(function(x){ host.appendChild(debtItem(x)); });
+    if (key) {
+      var parts = key.split('|');
+      var el = host.querySelector('input[data-act="' + parts[0] + '"][data-id="' + parts[1] + '"]');
+      if (el) { el.focus(); try { if (selS !== null) el.setSelectionRange(selS, selE); } catch(e){} }
+    }
+  }
+  function saveCard(){
+    if (!db) return toast('Saving isn’t available right now.');
+    var e = ui.cd || {}, name = (e.name || '').trim(), bal = r2(parseFloat(e.balance));
+    if (!name) return toast('Give the card a name.');
+    if (!isFinite(bal) || bal < 0) return toast('Enter the balance (0 or more).');
+    var id = ui.cardEdit === 'new' ? 'card-' + nid() : ui.cardEdit;
+    var type = e.type || 'Credit card', isCard = type === 'Credit card';
+    var obj = {name:name, emoji:Array.from((e.emoji || '').trim()).slice(0, 3).join(''), type:type, balance:bal, limit:isCard ? pos(e.limit) : 0, orig:isCard ? 0 : pos(e.orig), apr:pos(e.apr), min:pos(e.min), due:e.due || '', updated:isoToday()};
+    var isNew = ui.cardEdit === 'new';
+    if (isNew) { obj.start = bal; obj.payments = []; obj.sched = []; }
+    else { obj.start = r2(bal + paidSum(debtP(id) || {payments:[]})); }
+    enqueue(id, function(){ return isNew ? planRef(id).set(obj) : planRef(id).update(obj); });
+    ui.cardEdit = null; ui.cd = null; ui.confirmDel = null; render();
+    toast('Saved ' + name + '.');
+  }
+  function deleteCard(id){
+    if (!db) return;
+    enqueue(id, function(){ return planRef(id).delete(); });
+    ui.dview = null;
+    ui.cardEdit = null; ui.cd = null; ui.confirmDel = null; render();
+    toast('Card deleted.');
+  }
+  function payCard(id){
+    if (!db) return toast('Saving isn’t available right now.');
+    var c = cards[id], amt = r2(parseFloat(cardPay[id]));
+    if (!(amt > 0)) return toast('Enter a payment amount first.');
+    var nb = Math.max(0, r2((c.balance || 0) - amt));
+    delete cardPay[id];
+    enqueue(id, function(){ return planRef(id).update({balance:nb, updated:isoToday()}); });
+    toast('Logged ' + money(amt) + '. New balance ' + money(nb) + '.');
+  }
+
+  function render(){
+    var g = $('#grand'), aff = 0, oth = 0;
+    Object.keys(plans).forEach(function(k){ aff += remaining(plans[k]); });
+    Object.keys(cards).forEach(function(k){ oth += Number(cards[k].balance) || 0; });
+    g.textContent = '';
+    g.appendChild(h('div',{class:'k',text:'Total debt, everything'}));
+    g.appendChild(h('div',{class:'v',text:money(r2(aff + oth))}));
+    g.appendChild(h('div',{class:'meta',text:'Affirm ' + money(r2(aff)) + ' · Other debts ' + money(r2(oth))}));
+    $('#affirmTab').hidden = ui.tab !== 'affirm';
+    $('#cardsTab').hidden = ui.tab !== 'cards';
+    Array.prototype.forEach.call($('#tabs').children, function(t){ t.setAttribute('aria-pressed', t.getAttribute('data-tab') === ui.tab ? 'true' : 'false'); });
+    if (ui.tab === 'cards') { renderCards(); return; }
+    var ae = document.activeElement, key = null, selS = null, selE = null;
+    var host = $('#list');
+    if (ae && ae.tagName === 'INPUT' && host.contains(ae) && ae.getAttribute('data-id')) {
+      key = ae.getAttribute('data-id') + '|' + ae.getAttribute('data-act');
+      try { selS = ae.selectionStart; selE = ae.selectionEnd; } catch(e){}
+    }
+    renderSummary();
+    var items = list();
+    host.textContent = '';
+    var detail = (ui.view && plans[ui.view]) ? ui.view : null;
+    if (ui.view && !detail && loaded) ui.view = null;
+    $('#browse').hidden = !!detail;
+    if (!detail && loaded) {
+      host.appendChild(h('div',{class:'toolbar'}, h('button',{class:'btn','data-act':'pAdd',text:'+ Add plan'})));
+      if (ui.pedit === 'new') host.appendChild(planEditor('new'));
+    }
+    if (detail) {
+      var dp = plans[detail], dinf = info(dp);
+      host.appendChild(h('div',{class:'backrow'},
+        h('button',{class:'btn ghost','data-act':'back',text:'← All plans'}),
+        h('button',{class:'btn ghost','data-act':'pEdit','data-id':detail,text:'Edit details'})));
+      if (ui.pedit === detail) host.appendChild(planEditor(detail));
+      host.appendChild(card({p:dp, id:detail, inf:dinf, rem:dinf.rem}));
+    } else if (!loaded) host.appendChild(h('div',{class:'empty',text:'Loading…'}));
+    else if (!Object.keys(plans).length) host.appendChild(h('div',{class:'empty',text:'No plans yet. Tap + Add plan to enter one.'}));
+    else if (!items.length) host.appendChild(h('div',{class:'empty',text:'Nothing matches that filter.'}));
+    else items.forEach(function(x){ host.appendChild(compactCard(x)); });
+    $('#count').textContent = (loaded && !detail) ? ('Showing ' + items.length + ' of ' + Object.keys(plans).length + ' plans') : '';
+    if (key) {
+      var parts = key.split('|');
+      var el = host.querySelector('input[data-id="' + parts[0] + '"][data-act="' + parts[1] + '"]');
+      if (el) { el.focus(); try { if (selS !== null) el.setSelectionRange(selS, selE); } catch(e){} }
+    }
+  }
+
+  /* ---------- actions ---------- */
+  function planRef(id){ return db.doc('data/users/' + uid + '/' + id); }
+  function debtP(id){
+    var c = cards[id]; if (!c) return undefined;
+    var p = Object.assign({}, c);
+    p.isDebt = true; p.name = c.name || 'Debt';
+    p.start = c.start !== undefined ? c.start : (Number(c.balance) || 0);
+    p.payments = c.payments || []; p.sched = c.sched || [];
+    return p;
+  }
+  function getP(id){ return plans[id] || debtP(id); }
+  function save(id, obj){
+    if (id && id.indexOf('card-') === 0 && cards[id]) {
+      var m = Object.assign({}, debtP(id), obj);
+      obj = Object.assign({}, obj, {start: m.start, balance: remaining(m)});
+    }
+    enqueue(id, function(){ return planRef(id).update(obj); });
+  }
+
+  function logPayment(id){
+    if (!db) return toast('Saving isn’t available right now.');
+    var p = getP(id), d = drafts[id] || {};
+    var amt = r2(parseFloat(d.amt));
+    if (!(amt > 0)) return toast('Enter an amount first.');
+    var rem = remaining(p);
+    if (rem <= 0.004) return toast('That plan is already paid off.');
+    var capped = false;
+    if (amt > rem) { amt = rem; capped = true; }
+    var entry = {id:nid(), date: d.date || isoToday(), amount: amt};
+    delete drafts[id];
+    var upd = {payments: (p.payments||[]).concat([entry])}, adv = false;
+    if (!(p.sched||[]).length && p.due && monthly(p) > 0 && amt >= Math.min(monthly(p), rem) - 0.005) { upd.due = isoOf(addMonths(isoToLocal(p.due), 1)); adv = true; }
+    save(id, upd);
+    var msL = milestoneHit(pctPaid(p, rem), pctPaid(p, rem - amt));
+    if (rem - amt <= 0.004) { fx.celebrate(); msL = null; } else if (msL) fx.burst(lastTap.x, lastTap.y, 80); else fx.burst(lastTap.x, lastTap.y, 30);
+    toast((capped ? ('Logged ' + money(amt) + ' (that’s all that was left).') : ('Logged ' + money(amt) + ' toward ' + p.name + '.')) + (adv ? ' Due date moved ahead a month.' : '') + (msL ? ' ' + msL : ''));
+  }
+  function undo(id, pid){
+    if (!db) return;
+    save(id, {payments: (getP(id).payments||[]).filter(function(x){return x.id !== pid;})});
+    toast('Payment removed.');
+  }
+  function setMonthly(id, val){
+    if (!db) return;
+    var v = r2(parseFloat(val));
+    if (!(v > 0)) { render(); return toast('Amount must be more than zero.'); }
+    if (getP(id) && v === monthly(getP(id))) return;
+    save(id, {monthly: v});
+  }
+  function setDue(id, val){ if (db) save(id, {due: val || ''}); }
+
+  function toggleSched(id, sid){
+    if (!db) return;
+    var p = getP(id), s = (p.sched||[]).filter(function(x){return x.id === sid;})[0];
+    if (!s) return;
+    if (isPaidS(p, s)) {
+      save(id, {payments: (p.payments||[]).filter(function(x){return x.sid !== sid;})});
+      toast('Marked unpaid.'); return;
+    }
+    var rem = remaining(p);
+    if (rem <= 0.004) return toast('That plan is already paid off.');
+    var amt = Math.min(r2(s.amount || 0), rem);
+    if (!(amt > 0)) return toast('Add an amount to that payment first.');
+    save(id, {payments: (p.payments||[]).concat([{id:nid(), date:isoToday(), amount:amt, sid:sid}])});
+    var msT = milestoneHit(pctPaid(p, rem), pctPaid(p, rem - amt));
+    if (rem - amt <= 0.004) { fx.celebrate(); toast('Paid off! You did that 🎉'); }
+    else if (msT) { fx.burst(lastTap.x, lastTap.y, 80); toast(msT); }
+    else { fx.burst(lastTap.x, lastTap.y, 45); toast('Marked paid: ' + money(amt) + '.'); }
+  }
+  function saveSched(id){
+    if (!db || !ui.edit) return;
+    var e = ui.ed || {}, p = getP(id);
+    var amt = r2(parseFloat(e.amount));
+    if (!isoToLocal(e.date)) return toast('Pick a due date.');
+    if (!(amt > 0)) return toast('Enter an amount.');
+    var list = (p.sched||[]).slice();
+    if (ui.edit.sid === 'new') list.push({id:nid(), date:e.date, amount:amt, note:e.note || ''});
+    else list = list.map(function(s){ return s.id === ui.edit.sid ? {id:s.id, date:e.date, amount:amt, note:e.note || ''} : s; });
+    save(id, {sched: list});
+    ui.edit = null; ui.ed = null; render();
+    toast('Saved.');
+  }
+  function deleteSched(id, sid){
+    if (!db) return;
+    save(id, {sched: (getP(id).sched||[]).filter(function(s){return s.id !== sid;})});
+    ui.edit = null; ui.ed = null; render();
+    toast('Scheduled payment deleted.');
+  }
+  function autoFill(id){
+    if (!db || !ui.auto) return;
+    var p = getP(id), e = ui.auto;
+    var n = parseInt(e.n, 10), amt = r2(parseFloat(e.amt));
+    if (!isoToLocal(e.date)) return toast('Pick a first due date.');
+    if (!(n >= 1 && n <= 60)) return toast('Enter how many payments are left (1 to 60).');
+    if (!(amt > 0)) return toast('Enter the amount of each payment.');
+    var keep = (p.sched||[]).filter(function(s){ return isPaidS(p, s); });
+    var base = isoToLocal(e.date), fresh = [];
+    for (var i = 0; i < n; i++) fresh.push({id:nid(), date:isoOf(addMonths(base, i)), amount:amt, note:''});
+    var lastAmt = r2(remaining(p) - amt * (n - 1));
+    if (lastAmt > 0) fresh[n-1].amount = lastAmt;
+    save(id, {sched: keep.concat(fresh)});
+    ui.auto = null; render();
+    toast('Created ' + n + ' scheduled payment' + (n === 1 ? '' : 's') + '.');
+  }
+
+  /* ---------- events ---------- */
+  $('#sort').addEventListener('change', function(e){ ui.sort = e.target.value; render(); });
+  $('#q').addEventListener('input', function(e){ ui.q = e.target.value; render(); });
+  $('#chips').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-f]'); if (!b) return;
+    ui.filter = b.getAttribute('data-f');
+    Array.prototype.forEach.call($('#chips').children, function(c){ c.setAttribute('aria-pressed', c === b ? 'true' : 'false'); });
+    render();
+  });
+  $('#nextDue').addEventListener('change', function(e){
+    if (!db) return toast('Saving isn’t available right now.');
+    var v = e.target.value || '';
+    enqueue('settings', function(){ return db.doc('data/users/' + uid + '/settings').set({nextDue: v}); });
+  });
+
+  function wireList(listEl){
+  listEl.addEventListener('click', function(e){
+    var b = e.target.closest('button[data-act],[data-act="open"]'); if (!b) return;
+    var act = b.getAttribute('data-act'), id = b.getAttribute('data-id'), sid = b.getAttribute('data-sid');
+    var p = getP(id);
+    if (act === 'log') logPayment(id);
+    else if (act === 'undo') undo(id, b.getAttribute('data-pid'));
+    else if (act === 'fill') { drafts[id] = drafts[id] || {}; drafts[id].amt = Math.min(monthly(p), remaining(p)).toFixed(2); render(); }
+    else if (act === 'toggle') toggleSched(id, sid);
+    else if (act === 'editS') {
+      var s = (p.sched||[]).filter(function(x){return x.id === sid;})[0]; if (!s) return;
+      ui.edit = {id:id, sid:sid}; ui.ed = {date:s.date || '', amount:s.amount || '', note:s.note || ''}; ui.auto = null; render();
+    }
+    else if (act === 'addS') {
+      var rows = sched(p), lastRow = rows.length ? rows[rows.length-1] : null;
+      var nextDate = lastRow && lastRow.date ? isoOf(addMonths(isoToLocal(lastRow.date), 1)) : '';
+      ui.edit = {id:id, sid:'new'}; ui.ed = {date:nextDate, amount:Math.min(monthly(p), remaining(p)) || '', note:''}; ui.auto = null; render();
+    }
+    else if (act === 'saveS') saveSched(id);
+    else if (act === 'cancelS') { ui.edit = null; ui.ed = null; render(); }
+    else if (act === 'delS') deleteSched(id, sid);
+    else if (act === 'autoOpen') {
+      var inf = info(p);
+      ui.auto = {id:id, date:inf.next || p.due || settings.nextDue || isoToday(), n:inf.left || Math.max(1, (p.total||1) - (p.done||0)), amt:monthly(p).toFixed(2)};
+      ui.edit = null; ui.ed = null; render();
+    }
+    else if (act === 'autoGo') autoFill(id);
+    else if (act === 'autoCancel') { ui.auto = null; render(); }
+    else if (act === 'pEdit') {
+      ui.pedit = id; ui.edit = null; ui.auto = null;
+      ui.pd = {name:p.name, emoji:p.emoji || '', balance:remaining(p).toFixed(2), done:p.done || 0, total:p.total || 1, autopay:p.autopay ? 'on' : 'off'};
+      render();
+    }
+    else if (act === 'pAdd') { ui.view = null; ui.pedit = 'new'; ui.edit = null; ui.auto = null; ui.pd = {name:'', emoji:'', balance:'', done:0, total:12, autopay:'off'}; render(); }
+    else if (act === 'emojiPick') { var emj = b.getAttribute('data-emoji'); if (ui.cardEdit === id && ui.cd) ui.cd.emoji = emj; else if (ui.pd) ui.pd.emoji = emj; render(); }
+    else if (act === 'pCancel') { ui.pedit = null; ui.pd = null; render(); }
+    else if (act === 'pSave') savePlan(id);
+    else if (act === 'open') { ui.scrollY = window.scrollY; ui.view = id; ui.edit = null; ui.ed = null; ui.auto = null; render(); window.scrollTo(0, 0); }
+    else if (act === 'back') { ui.pedit = null; ui.view = null; ui.edit = null; ui.ed = null; ui.auto = null; render(); window.scrollTo(0, ui.scrollY || 0); }
+  });
+  listEl.addEventListener('input', function(e){
+    var el = e.target, act = el.getAttribute('data-act'), id = el.getAttribute('data-id');
+    if (!id || !act) return;
+    if (act === 'amt' || act === 'date') { drafts[id] = drafts[id] || {}; drafts[id][act] = el.value; }
+    else if (act === 'ed-date' && ui.ed) ui.ed.date = el.value;
+    else if (act === 'ed-amt' && ui.ed) ui.ed.amount = el.value;
+    else if (act === 'ed-note' && ui.ed) ui.ed.note = el.value;
+    else if (act === 'au-date' && ui.auto) ui.auto.date = el.value;
+    else if (act === 'au-n' && ui.auto) ui.auto.n = el.value;
+    else if (act === 'au-amt' && ui.auto) ui.auto.amt = el.value;
+    else if (act.indexOf('pf-') === 0 && ui.pd) { var pk = {'pf-name':'name','pf-emoji':'emoji','pf-bal':'balance','pf-done':'done','pf-total':'total','pf-auto':'autopay'}[act]; if (pk) ui.pd[pk] = el.value; }
+  });
+  listEl.addEventListener('change', function(e){
+    var el = e.target, act = el.getAttribute('data-act');
+    if (act === 'monthly') setMonthly(el.getAttribute('data-id'), el.value);
+    else if (act === 'due') setDue(el.getAttribute('data-id'), el.value);
+  });
+  listEl.addEventListener('keydown', function(e){
+    var t = e.target, ta = t.getAttribute('data-act');
+    if (e.key === 'Enter' && ta === 'amt') logPayment(t.getAttribute('data-id'));
+    else if ((e.key === 'Enter' || e.key === ' ') && ta === 'open') { e.preventDefault(); t.click(); }
+  });
+  listEl.addEventListener('toggle', function(e){
+    var d = e.target; if (d.tagName !== 'DETAILS') return;
+    var id = d.getAttribute('data-id');
+    if (d.getAttribute('data-kind') === 'sched') openS[id] = d.open; else openHist[id] = d.open;
+  }, true);
+  }
+  wireList($('#list'));
+  wireList($('#cardsTab'));
+
+  /* ---------- startup ---------- */
+  var CHEERS = [
+    'You’ve got this, babe. Every payment counts 💖',
+    'Debt-free era loading… ✨',
+    'Boss babes pay their bills and look good doing it 💅',
+    'Small payments, big power 💪',
+    'Future you is so proud of you right now 🥹',
+    'Progress over perfection, always 🌸',
+    'You’re building your empire one payment at a time 👑',
+    'Look at you handling your money like the CEO you are 💼',
+    'Every dollar you pay down is a dollar of freedom 🦋',
+    'Be gentle with yourself. You’re doing great 🎀',
+    'Your money, your rules 💗',
+    'One payment closer to debt-free 🌷',
+    'Slay the balance, babe ✨',
+    'You showed up today, and that matters 💖'
+  ];
+  var cheerOn = false, cheerI = -1, cheerTimer = null;
+  function nextCheer(){
+    var i;
+    do { i = Math.floor(Math.random() * CHEERS.length); } while (i === cheerI && CHEERS.length > 1);
+    cheerI = i; return CHEERS[i];
+  }
+  function startCheer(){
+    cheerOn = true;
+    $('#status').textContent = nextCheer();
+    if (cheerTimer) return;
+    cheerTimer = setInterval(function(){
+      if (!cheerOn) return;
+      var el = $('#status'); el.classList.add('fade');
+      setTimeout(function(){ if (cheerOn) el.textContent = nextCheer(); el.classList.remove('fade'); }, 450);
+    }, 12000);
+  }
+  function setStatus(t){ cheerOn = false; $('#status').textContent = t; }
+  /* ---------- saving: this copy saves to your own browser (localStorage) ---------- */
+  var SEED = {"plan-01": {"autopay": false, "done": 4, "name": "DoorDash", "payments": [], "start": 243.72, "total": 12}, "plan-02": {"autopay": false, "done": 4, "name": "StubHub", "payments": [], "start": 82.47, "total": 6}, "plan-03": {"autopay": false, "done": 2, "name": "GoodwillFinds", "payments": [], "start": 144.3, "total": 12}, "plan-04": {"autopay": false, "done": 2, "emoji": "", "name": "Barnes & Noble", "payments": [], "start": 100.08, "total": 12}, "plan-05": {"autopay": false, "done": 4, "due": "2026-11-10", "emoji": "", "name": "Misc.", "payments": [], "start": 62.59, "total": 6}, "plan-06": {"autopay": false, "done": 4, "name": "Hilton Hotels", "payments": [], "start": 183.93, "total": 12}, "plan-07": {"autopay": false, "done": 4, "name": "Ross", "payments": [], "start": 127.02, "total": 6}, "plan-08": {"autopay": false, "done": 4, "name": "Veterinarian", "payments": [], "start": 268.33, "total": 12}, "plan-09": {"autopay": false, "done": 2, "name": "Other", "payments": [], "start": 380.45, "total": 12}, "plan-10": {"autopay": false, "done": 6, "name": "Amazon", "payments": [], "start": 226.57, "total": 12}, "plan-11": {"autopay": false, "done": 5, "name": "Amazon", "payments": [], "start": 756.83, "total": 12}, "plan-12": {"autopay": false, "done": 4, "name": "Ross", "payments": [], "start": 293.13, "total": 12}, "plan-13": {"autopay": false, "done": 4, "name": "T.J. Maxx", "payments": [], "start": 193.21, "total": 12}, "plan-14": {"autopay": false, "done": 4, "name": "Meijer (first)", "payments": [], "start": 389.61, "total": 12}, "plan-15": {"autopay": false, "done": 3, "name": "StubHub", "payments": [], "start": 319.08, "total": 6}, "plan-16": {"autopay": false, "done": 2, "name": "Macy's", "payments": [], "start": 96.16, "total": 6}, "plan-17": {"autopay": false, "done": 3, "name": "SHEIN", "payments": [], "start": 108.33, "total": 6}, "plan-18": {"autopay": false, "done": 2, "name": "Lovisa", "payments": [], "start": 390.36, "total": 12}, "plan-19": {"autopay": false, "done": 5, "name": "Best Buy", "payments": [], "start": 538.4, "total": 12}, "plan-20": {"autopay": false, "done": 2, "emoji": "", "name": "Target", "payments": [], "start": 276.94, "total": 12}, "plan-21": {"autopay": false, "done": 8, "name": "Amazon", "payments": [], "start": 412.2, "total": 12}, "plan-22": {"autopay": false, "done": 4, "name": "Meijer (second)", "payments": [], "start": 477.24, "total": 12}};
+  function makeLocalDb(){
+    var KEY = 'debt-tracker-data-v1', store = null;
+    try { store = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch(e){ store = null; }
+    if (!store) { store = JSON.parse(JSON.stringify(SEED)); }
+    var listeners = [];
+    function persist(){ try { localStorage.setItem(KEY, JSON.stringify(store)); } catch(e){} }
+    function notify(){ listeners.forEach(function(fn){ fn(); }); }
+    function copy(o){ return JSON.parse(JSON.stringify(o)); }
+    function snap(){
+      return {metadata:{fromCache:false}, docs:Object.keys(store).sort().map(function(id){
+        return {id:id, data:function(){ return copy(store[id]); }};
+      })};
+    }
+    return {
+      doc: function(path){
+        var id = path.split('/').pop();
+        return {
+          set: function(d){ store[id] = copy(d); persist(); notify(); return Promise.resolve(); },
+          update: function(d){
+            if (!store[id]) return Promise.reject(new Error('That item no longer exists.'));
+            Object.assign(store[id], copy(d)); persist(); notify(); return Promise.resolve();
+          },
+          delete: function(){ delete store[id]; persist(); notify(); return Promise.resolve(); }
+        };
+      },
+      collection: function(){
+        return { onSnapshot: function(next){
+          var fn = function(){ next(snap()); };
+          listeners.push(fn); setTimeout(fn, 0);
+          return function(){ listeners = listeners.filter(function(x){ return x !== fn; }); };
+        }};
+      }
+    };
+  }
+  async function init(){
+    render();
+    uid = 'local'; db = makeLocalDb();
+    var timer = null;
+    db.collection('data/users/' + uid).onSnapshot(function(snap){
+      var np = {}, ns = {}, nc = {};
+      snap.docs.forEach(function(d){
+        var data = d.data() || {};
+        if (d.id === 'settings') ns = data;
+        else if (d.id.indexOf('plan-') === 0) np[d.id] = data;
+        else if (d.id.indexOf('card-') === 0) nc[d.id] = data;
+      });
+      plans = np; settings = ns; cards = nc; loaded = true;
+      if (!snap.metadata.fromCache) clearTimeout(timer);
+      if (!cheerOn) startCheer();
+      var nd = $('#nextDue'); if (document.activeElement !== nd) nd.value = settings.nextDue || '';
+      render();
+    }, function(){
+      clearTimeout(timer); loaded = true; setStatus('Couldn’t load your saved data.'); render();
+    });
+  }
+  $('#tabs').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-tab]'); if (!b) return;
+    ui.tab = b.getAttribute('data-tab'); render(); window.scrollTo(0, 0);
+  });
+  var cardsEl = $('#cardsTab');
+  cardsEl.addEventListener('click', function(e){
+    var b = e.target.closest('button[data-act],[data-act="dOpen"]'); if (!b) return;
+    var act = b.getAttribute('data-act'), id = b.getAttribute('data-id');
+    if (act === 'dOpen') { ui.dview = id; ui.cardEdit = null; ui.cd = null; ui.confirmDel = null; ui.edit = null; ui.ed = null; ui.auto = null; ui.dscroll = window.scrollY; render(); window.scrollTo(0, 0); return; }
+    if (act === 'dBack') { ui.dview = null; ui.cardEdit = null; ui.cd = null; ui.confirmDel = null; ui.edit = null; ui.ed = null; ui.auto = null; render(); window.scrollTo(0, ui.dscroll || 0); return; }
+    if (act === 'cAdd') { ui.cardEdit = 'new'; ui.cd = {}; ui.confirmDel = null; render(); }
+    else if (act === 'cEdit') {
+      var c = cards[id]; if (!c) return;
+      ui.cardEdit = id; ui.cd = {name:c.name, emoji:c.emoji || '', type:c.type || 'Credit card', balance:c.balance, limit:c.limit || '', orig:c.orig || '', apr:c.apr || '', min:c.min || '', due:c.due || ''}; ui.confirmDel = null; render();
+    }
+    else if (act === 'cCancel') { ui.cardEdit = null; ui.cd = null; ui.confirmDel = null; render(); }
+    else if (act === 'cSave') saveCard();
+    else if (act === 'cDel') { if (ui.confirmDel === id) deleteCard(id); else { ui.confirmDel = id; render(); } }
+    else if (act === 'cPay') payCard(id);
+  });
+  cardsEl.addEventListener('input', function(e){
+    var el = e.target, act = el.getAttribute('data-act'), id = el.getAttribute('data-id');
+    if (act === 'cp') { cardPay[id] = el.value; return; }
+    if (!ui.cd) return;
+    var map = {'cf-name':'name','cf-emoji':'emoji','cf-type':'type','cf-bal':'balance','cf-limit':'limit','cf-orig':'orig','cf-apr':'apr','cf-min':'min','cf-due':'due'};
+    if (map[act]) ui.cd[map[act]] = el.value;
+  });
+  cardsEl.addEventListener('change', function(e){
+    var ta = e.target.getAttribute('data-act');
+    if (ta === 'csort') { ui.cardSort = e.target.value; render(); }
+    else if (ta === 'cf-type' && ui.cd) { ui.cd.type = e.target.value; render(); }
+  });
+  cardsEl.addEventListener('keydown', function(e){
+    var kt = e.target.getAttribute('data-act');
+    if (e.key === 'Enter' && kt === 'cp') payCard(e.target.getAttribute('data-id'));
+    else if ((e.key === 'Enter' || e.key === ' ') && kt === 'dOpen') { e.preventDefault(); e.target.click(); }
+  });
+  function effectiveDark(){
+    var t = document.documentElement.getAttribute('data-theme');
+    if (t) return t === 'dark';
+    return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  }
+  function paintTheme(){
+    var b = $('#themeBtn'), d = effectiveDark();
+    b.textContent = d ? '☀️' : '🌙';
+    b.setAttribute('aria-label', d ? 'Switch to light mode' : 'Switch to dark mode');
+  }
+  try { var savedTheme = localStorage.getItem('theme'); if (savedTheme === 'dark' || savedTheme === 'light') document.documentElement.setAttribute('data-theme', savedTheme); } catch(e){}
+  paintTheme();
+  $('#themeBtn').addEventListener('click', function(){
+    var next = effectiveDark() ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('theme', next); } catch(e){}
+    paintTheme();
+  });
+  function shimmerize(root){
+    var els = root.querySelectorAll('.btn,.tab,.chip');
+    for (var i = 0; i < els.length; i++) {
+      var el = els[i];
+      if (el.getAttribute('data-sh')) continue;
+      el.setAttribute('data-sh', '1');
+      el.style.setProperty('--sd', '-' + (Math.random() * 10).toFixed(1) + 's');
+      el.style.setProperty('--sp', (5 + Math.random() * 5).toFixed(1) + 's');
+    }
+  }
+  shimmerize(document);
+  new MutationObserver(function(){ shimmerize(document); }).observe($('#app'), {childList:true, subtree:true});
+  (function(){
+    var box = document.getElementById('floaty'); if (!box) return;
+    var G = ['♥','♡','♥','✦','♥'];
+    for (var i = 0; i < 14; i++) {
+      var s = document.createElement('span'); s.className = 'fh'; s.textContent = G[i % G.length];
+      s.style.setProperty('--x', (Math.random() * 96).toFixed(1) + '%');
+      s.style.setProperty('--sz', (12 + Math.random() * 18).toFixed(0) + 'px');
+      s.style.setProperty('--dur', (16 + Math.random() * 14).toFixed(1) + 's');
+      s.style.setProperty('--del', '-' + (Math.random() * 28).toFixed(1) + 's');
+      box.appendChild(s);
+    }
+  })();
+  init();
+})();
+</script>
+</body>
+</html>
