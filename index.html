@@ -4,6 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#fff8fb" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#2e1220" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Debt Tracker">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
 <title>Debt Tracker</title>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Pacifico&display=swap" rel="stylesheet">
 <style>
@@ -146,6 +155,17 @@ input[type=number],input[type=date],input[type=search],input[type=text],select{b
 .card::after,.ccard::after{content:"\2661";position:absolute;bottom:8px;right:16px;font-size:16px;color:var(--accent2);opacity:.7;pointer-events:none}
 .stat,.panel{border-radius:24px}
 .sticker{display:inline-block;margin-top:4px;padding:2px 10px;border-radius:999px;background:var(--chip);color:var(--accent);font-size:12px;font-weight:600}
+.tabs{gap:4px}
+.tab{padding:10px 2px;font-size:13px;white-space:nowrap}
+.tickgap{width:38px;height:38px;flex-shrink:0}
+.gear{right:auto;left:14px}
+.tools{text-align:center}
+.tools .row{justify-content:center}
+.ch-line{fill:none;stroke:var(--accent);stroke-width:3;stroke-linejoin:round;stroke-linecap:round}
+.ch-area{fill:var(--accent2);fill-opacity:.28}
+.ch-grid{stroke:var(--line);stroke-width:1}
+.ch-dot{fill:var(--accent);stroke:var(--bg);stroke-width:2}
+.ch-txt{fill:var(--muted);font-size:10px;font-family:inherit}
 .picks{display:flex;flex-wrap:wrap;gap:6px}
 .pick{border:0;background:var(--chip);border-radius:12px;font-size:20px;line-height:1;padding:7px 8px;cursor:pointer}
 @media (prefers-reduced-motion:reduce){#floaty{display:none}}
@@ -155,12 +175,23 @@ input[type=number],input[type=date],input[type=search],input[type=text],select{b
 <div id="floaty" aria-hidden="true"></div>
 <div class="wrap" id="app">
   <button class="theme" id="themeBtn" aria-label="Switch between light and dark mode">🌙</button>
+  <button class="theme gear" id="gearBtn" aria-label="Back up and restore" aria-expanded="false">⚙️</button>
   <h1>Debt Tracker ✨</h1>
   <p class="sub" id="status">Loading your plans…</p>
+  <div class="panel tools" id="toolsPanel" hidden>
+    <div class="row">
+      <button class="btn ghost" id="backupBtn">💾 Back up my data</button>
+      <button class="btn ghost" id="restoreBtn">📂 Restore from backup</button>
+    </div>
+    <input type="file" id="restoreFile" accept="application/json,.json" hidden>
+    <p class="note" id="backupNote"></p>
+  </div>
   <div class="stat" id="grand"></div>
   <div class="tabs" id="tabs">
-    <button class="tab" data-tab="affirm" aria-pressed="true">💗 Affirm plans</button>
-    <button class="tab" data-tab="cards" aria-pressed="false">💳 Other debts</button>
+    <button class="tab" data-tab="affirm" aria-pressed="true">💗 Affirm</button>
+    <button class="tab" data-tab="cards" aria-pressed="false">💳 Other</button>
+    <button class="tab" data-tab="upcoming" aria-pressed="false">📅 Due soon</button>
+    <button class="tab" data-tab="progress" aria-pressed="false">📈 Progress</button>
   </div>
 
   <div id="affirmTab">
@@ -191,6 +222,7 @@ input[type=number],input[type=date],input[type=search],input[type=text],select{b
       <button class="chip" data-f="open" aria-pressed="false">Still owe</button>
       <button class="chip" data-f="paid" aria-pressed="false">Paid off</button>
       <button class="chip" data-f="auto" aria-pressed="false">AutoPay on</button>
+      <button class="chip" data-f="archived" aria-pressed="false">Archived</button>
     </div>
   </div>
   <div class="count" id="count"></div>
@@ -198,6 +230,8 @@ input[type=number],input[type=date],input[type=search],input[type=text],select{b
   <div id="list"></div>
   </div>
   <div id="cardsTab" hidden></div>
+  <div id="upcomingTab" hidden></div>
+  <div id="progressTab" hidden></div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <canvas id="fx" aria-hidden="true"></canvas>
@@ -207,7 +241,7 @@ input[type=number],input[type=date],input[type=search],input[type=text],select{b
   var $ = function(s){return document.querySelector(s);};
   var money = function(n){return n.toLocaleString('en-US',{style:'currency',currency:'USD'});};
   var r2 = function(n){return Math.round(n*100)/100;};
-  var plans = {}, settings = {}, cards = {}, cardPay = {}, ui = {sort:'bal-asc', filter:'all', q:'', edit:null, ed:null, auto:null, tab:'affirm', cardEdit:null, cd:null, cardSort:'bal-desc', confirmDel:null};
+  var hist = [], openLater = false, plans = {}, settings = {}, cards = {}, cardPay = {}, ui = {sort:'bal-asc', filter:'all', q:'', edit:null, ed:null, auto:null, tab:'affirm', cardEdit:null, cd:null, cardSort:'bal-desc', confirmDel:null};
   var drafts = {}, openHist = {}, openS = {}, db = null, uid = null, loaded = false, queues = {}, toastT = null;
 
   function toast(msg){
@@ -390,6 +424,8 @@ input[type=number],input[type=date],input[type=search],input[type=text],select{b
     var arr = Object.keys(plans).map(function(id){ var p = plans[id]; var inf = info(p); return {id:id, p:p, inf:inf, rem:inf.rem}; });
     var q = ui.q.trim().toLowerCase();
     arr = arr.filter(function(x){
+      if (ui.filter === 'archived') return !!x.p.archived;
+      if (x.p.archived) return false;
       if (q && x.p.name.toLowerCase().indexOf(q) < 0) return false;
       if (ui.filter === 'open') return x.rem > 0.004;
       if (ui.filter === 'paid') return x.rem <= 0.004;
@@ -412,7 +448,7 @@ input[type=number],input[type=date],input[type=search],input[type=text],select{b
   }
 
   function renderSummary(){
-    var all = Object.keys(plans).map(function(id){return plans[id];});
+    var all = Object.keys(plans).map(function(id){return plans[id];}).filter(function(p){ return !p.archived; });
     var rem = 0, paid = 0, mo = 0, last = null, open = 0, week = 0;
     var limit = new Date(); limit.setDate(limit.getDate() + 7); var lim = isoOf(limit);
     all.forEach(function(p){
@@ -426,10 +462,6 @@ input[type=number],input[type=date],input[type=search],input[type=text],select{b
     var box = $('#summary'); box.textContent = '';
     function stat(k, v){ box.appendChild(h('div',{class:'stat'}, h('div',{class:'k',text:k}), h('div',{class:'v',text:v}))); }
     stat('Total still owed', money(r2(rem)));
-    stat('Paid down so far', money(r2(paid)));
-    stat('Typical monthly total', money(r2(mo)));
-    stat('Plans still open', String(open) + ' of ' + all.length);
-    stat('Due in next 7 days', money(r2(week)));
     stat('Debt-free date', open ? fmtDate(last) : (all.length ? 'Done! 🎉' : '—'));
   }
 
@@ -561,6 +593,13 @@ input[type=number],input[type=date],input[type=search],input[type=text],select{b
     var sel = h('select',{'data-act':'pf-auto','data-id':id,'aria-label':'AutoPay'});
     [['off','AutoPay off'],['on','AutoPay on']].forEach(function(o){ sel.appendChild(h('option',{value:o[0],text:o[1]})); });
     sel.value = e.autopay || 'off';
+    var extra = null;
+    if (id !== 'new') {
+      var cur = getP(id) || {};
+      extra = h('div',{class:'row'},
+        h('button',{class:'btn ghost','data-act':'pArch','data-id':id,text: cur.archived ? 'Unarchive' : 'Archive'}),
+        h('button',{class:'x','data-act':'pDel','data-id':id,text: ui.pdel ? 'Tap again to delete' : 'Delete plan'}));
+    }
     return h('div',{class:'card'}, h('div',{class:'editor'},
       labeled('Plan name', inp('pf-name','text',e.name)),
       labeled('Emoji (optional)', inp('pf-emoji','text',e.emoji)), emojiPicks(id),
@@ -568,7 +607,7 @@ input[type=number],input[type=date],input[type=search],input[type=text],select{b
       h('div',{class:'grid2'}, labeled('Payments made', inp('pf-done','number',e.done,'1')), labeled('Total payments', inp('pf-total','number',e.total,'1'))),
       h('div',{class:'row'},
         h('button',{class:'btn','data-act':'pSave','data-id':id,text:'Save'}),
-        h('button',{class:'btn ghost','data-act':'pCancel','data-id':id,text:'Cancel'}))));
+        h('button',{class:'btn ghost','data-act':'pCancel','data-id':id,text:'Cancel'})), extra));
   }
   function savePlan(id){
     if (!db) return toast('Saving isn’t available right now.');
@@ -775,9 +814,200 @@ input[type=number],input[type=date],input[type=search],input[type=text],select{b
     toast('Logged ' + money(amt) + '. New balance ' + money(nb) + '.');
   }
 
+  /* ---------- upcoming payments ---------- */
+  function fmtDay(iso){ var d = isoToLocal(iso); return d ? d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}) : 'No date'; }
+  function collectUpcoming(){
+    var out = [];
+    function addFrom(id, p, kind){
+      if (!p || p.archived) return;
+      var rem = remaining(p); if (rem <= 0.004) return;
+      var sc = sched(p).filter(function(x){ return !isPaidS(p, x) && x.date && x.amount > 0; });
+      if (sc.length) {
+        var cum = 0;
+        sc.forEach(function(x){
+          if (cum >= rem - 0.005) return;
+          var amt = Math.min(x.amount, r2(rem - cum)); cum = r2(cum + x.amount);
+          out.push({id:id, sid:x.id, kind:kind, p:p, date:x.date, amount:amt, note:x.note || ''});
+        });
+      } else if (p.due) {
+        var m = monthly(p);
+        out.push({id:id, sid:null, kind:kind, p:p, date:p.due, amount:m > 0 ? Math.min(m, rem) : 0, note:''});
+      }
+    }
+    Object.keys(plans).forEach(function(id){ addFrom(id, plans[id], 'plan'); });
+    Object.keys(cards).forEach(function(id){ addFrom(id, debtP(id), 'debt'); });
+    out.sort(function(a, b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : (a.p.name || '').localeCompare(b.p.name || '')); });
+    return out;
+  }
+  function urow(x){
+    var late = x.date < isoToday();
+    var tick = x.sid
+      ? h('button',{class:'tick','data-act':'toggle','data-id':x.id,'data-sid':x.sid,'aria-label':'Mark paid: ' + x.p.name,text:'\u2661'})
+      : h('span',{class:'tickgap'});
+    var inf = h('button',{class:'sinfo','data-act':'uOpen','data-id':x.id,'data-kind':x.kind,'aria-label':'Open ' + x.p.name},
+      h('span',{class:'sl',text:emojiFor(x.p) + ' ' + x.p.name}),
+      h('span',{class:'sa',text:x.amount ? money(x.amount) : '\u2014'}),
+      h('span',{class:'ss',text:(late ? 'Overdue \u00b7 ' : '') + fmtDay(x.date) + (x.note ? ' \u00b7 ' + x.note : '')}));
+    return h('div',{class:'srow' + (late ? ' late' : '')}, tick, inf);
+  }
+  function renderUpcoming(){
+    var host = $('#upcomingTab'); host.textContent = '';
+    if (!loaded) { host.appendChild(h('div',{class:'empty',text:'Loading\u2026'})); return; }
+    var items = collectUpcoming(), today = isoToday();
+    var d7 = new Date(); d7.setDate(d7.getDate() + 7); var lim7 = isoOf(d7);
+    var d30 = new Date(); d30.setDate(d30.getDate() + 30); var lim30 = isoOf(d30);
+    var g = {over:[], wk:[], mo:[], later:[]}, sums = {over:0, wk:0, mo:0};
+    items.forEach(function(x){
+      var k = x.date < today ? 'over' : (x.date <= lim7 ? 'wk' : (x.date <= lim30 ? 'mo' : 'later'));
+      g[k].push(x); if (k !== 'later') sums[k] += x.amount || 0;
+    });
+    var sum = h('div',{class:'summary'});
+    function stat(k, v){ sum.appendChild(h('div',{class:'stat'}, h('div',{class:'k',text:k}), h('div',{class:'v',text:v}))); }
+    stat('Overdue', money(r2(sums.over)));
+    stat('Next 7 days', money(r2(sums.wk)));
+    stat('Next 30 days', money(r2(sums.wk + sums.mo)));
+    stat('Payments scheduled', String(items.length));
+    host.appendChild(sum);
+    if (!items.length) {
+      host.appendChild(h('div',{class:'empty',text:'Nothing scheduled yet. Add scheduled payments or a due date to a plan or debt and it will show up here \ud83d\udc97'}));
+      return;
+    }
+    function group(title, arr){
+      if (!arr.length) return;
+      var card = h('div',{class:'card'}, h('p',{class:'name',text:title + ' (' + arr.length + ')'}));
+      arr.forEach(function(x){ card.appendChild(urow(x)); });
+      host.appendChild(card);
+    }
+    group('Overdue', g.over);
+    group('Next 7 days', g.wk);
+    group('Next 30 days', g.mo);
+    if (g.later.length) {
+      var card = h('div',{class:'card'}, h('p',{class:'name',text:'Later (' + g.later.length + ')'}));
+      var det = h('details',{}, h('summary',{text:'Show later payments'}));
+      g.later.forEach(function(x){ det.appendChild(urow(x)); });
+      if (openLater) det.setAttribute('open','');
+      det.addEventListener('toggle', function(){ openLater = det.open; });
+      card.appendChild(det); host.appendChild(card);
+    }
+  }
+
+  /* ---------- progress chart ---------- */
+  function recordHistory(){
+    if (!db || !loaded) return;
+    var a = 0, o = 0, n = 0;
+    Object.keys(plans).forEach(function(k){ if (!plans[k].archived) { a += remaining(plans[k]); n++; } });
+    Object.keys(cards).forEach(function(k){ o += Number(cards[k].balance) || 0; n++; });
+    if (!n) return;
+    a = r2(a); o = r2(o);
+    var t = r2(a + o), today = isoToday();
+    var pts = (hist || []).slice(), last = pts[pts.length - 1];
+    if (last && last.d === today && last.t === t) return;
+    var point = {d:today, t:t, a:a, o:o};
+    if (last && last.d === today) pts[pts.length - 1] = point; else pts.push(point);
+    if (pts.length > 730) pts = pts.slice(-730);
+    hist = pts;
+    enqueue('history', function(){ return db.doc('data/users/' + uid + '/history').set({points:pts}); });
+  }
+  function buildSeries(){
+    var pts = (hist || []).slice().sort(function(a, b){ return a.d < b.d ? -1 : 1; });
+    if (!pts.length) return [];
+    var first = pts[0], pays = [];
+    function gather(o){ (o.payments || []).forEach(function(x){ if (x.date && x.amount > 0) pays.push({d:x.date, a:Number(x.amount)}); }); }
+    Object.keys(plans).forEach(function(k){ if (!plans[k].archived) gather(plans[k]); });
+    Object.keys(cards).forEach(function(k){ gather(cards[k]); });
+    var pre = pays.filter(function(x){ return x.d <= first.d; });
+    var byDate = {};
+    if (pre.length) {
+      var dates = Array.from(new Set(pre.map(function(x){ return x.d; }))).sort();
+      var origin = r2(first.t + pre.reduce(function(sm, x){ return sm + x.a; }, 0));
+      byDate[isoOf(new Date(isoToLocal(dates[0]).getTime() - 864e5))] = origin;
+      dates.forEach(function(d){
+        byDate[d] = r2(first.t + pre.filter(function(x){ return x.d > d; }).reduce(function(sm, x){ return sm + x.a; }, 0));
+      });
+    }
+    pts.forEach(function(p){ byDate[p.d] = p.t; });
+    return Object.keys(byDate).sort().map(function(d){ return {d:d, t:byDate[d]}; });
+  }
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  function sv(tag, attrs, text){
+    var el = document.createElementNS(SVGNS, tag);
+    Object.keys(attrs || {}).forEach(function(k){ el.setAttribute(k, attrs[k]); });
+    if (text !== undefined) el.textContent = text;
+    return el;
+  }
+  function shortDate(iso){ var d = isoToLocal(iso); return d ? d.toLocaleDateString('en-US',{month:'short',day:'numeric'}) : ''; }
+  function chartSvg(series){
+    var W = 340, H = 200, L = 52, R = 14, T = 22, B = 28;
+    var svg = sv('svg',{viewBox:'0 0 ' + W + ' ' + H, width:'100%', role:'img', 'aria-label':'Total debt over time'});
+    var t0 = isoToLocal(series[0].d).getTime(), t1 = isoToLocal(series[series.length - 1].d).getTime();
+    if (t1 === t0) t1 = t0 + 864e5;
+    var max = Math.max.apply(null, series.map(function(p){ return p.t; })); if (!(max > 0)) max = 1;
+    var maxY = max * 1.08;
+    function X(d){ return L + (isoToLocal(d).getTime() - t0) / (t1 - t0) * (W - L - R); }
+    function Y(v){ return T + (1 - v / maxY) * (H - T - B); }
+    function money0(v){ return '$' + Math.round(v).toLocaleString('en-US'); }
+    [0, 0.5, 1].forEach(function(f){
+      var v = max * f;
+      svg.appendChild(sv('line',{class:'ch-grid',x1:L,x2:W - R,y1:Y(v).toFixed(1),y2:Y(v).toFixed(1)}));
+      svg.appendChild(sv('text',{class:'ch-txt',x:L - 6,y:(Y(v) + 3).toFixed(1),'text-anchor':'end'}, money0(v)));
+    });
+    var line = '', area = '';
+    series.forEach(function(p, i){
+      var x = X(p.d).toFixed(1), y = Y(p.t).toFixed(1);
+      line += (i ? ' L' : 'M') + x + ',' + y;
+    });
+    area = line + ' L' + X(series[series.length - 1].d).toFixed(1) + ',' + Y(0).toFixed(1) + ' L' + X(series[0].d).toFixed(1) + ',' + Y(0).toFixed(1) + ' Z';
+    svg.appendChild(sv('path',{class:'ch-area',d:area}));
+    svg.appendChild(sv('path',{class:'ch-line',d:line}));
+    var lp = series[series.length - 1];
+    svg.appendChild(sv('circle',{class:'ch-dot',cx:X(lp.d).toFixed(1),cy:Y(lp.t).toFixed(1),r:5}));
+    svg.appendChild(sv('text',{class:'ch-txt',x:L,y:H - 8,'text-anchor':'start'}, shortDate(series[0].d)));
+    svg.appendChild(sv('text',{class:'ch-txt',x:W - R,y:H - 8,'text-anchor':'end'}, shortDate(lp.d)));
+    return svg;
+  }
+  function renderProgress(){
+    var host = $('#progressTab'); host.textContent = '';
+    if (!loaded) { host.appendChild(h('div',{class:'empty',text:'Loading\u2026'})); return; }
+    var series = buildSeries();
+    if (!series.length) { host.appendChild(h('div',{class:'empty',text:'Add some plans or debts and your progress chart will start here \ud83d\udc97'})); return; }
+    var first = series[0], last = series[series.length - 1], down = r2(first.t - last.t);
+    var sum = h('div',{class:'summary'});
+    function stat(k, v){ sum.appendChild(h('div',{class:'stat'}, h('div',{class:'k',text:k}), h('div',{class:'v',text:v}))); }
+    stat('Started at', money(first.t));
+    stat('Total now', money(last.t));
+    stat('Paid down', down > 0 ? money(down) : '\u2014');
+    stat('Progress', first.t > 0 && down > 0 ? Math.round(down / first.t * 100) + '% \ud83c\udf38' : '\u2014');
+    host.appendChild(sum);
+    var card = h('div',{class:'card'}, h('p',{class:'name',text:'\ud83d\udcc9 Your total debt over time'}));
+    if (series.length < 2) {
+      card.appendChild(h('p',{class:'note',text:'Your chart grows as you pay things down. Open the app now and then, and log your payments so it can draw your progress \ud83d\udc96'}));
+    } else {
+      card.appendChild(chartSvg(series));
+      card.appendChild(h('p',{class:'note',text:'Archived plans are left out. The chart saves one point a day when you open the app, and it fills in earlier days from payments you logged.'}));
+    }
+    host.appendChild(card);
+  }
+
+  /* ---------- backup & restore ---------- */
+  function paintBackupNote(){
+    var lb = null; try { lb = localStorage.getItem('debt-tracker-last-backup'); } catch(e){}
+    $('#backupNote').textContent = lb ? 'Last backup: ' + fmtDate(isoToLocal(lb)) : 'You haven\u2019t backed up yet. Tap Back up to save a copy of your data \ud83d\udc96';
+  }
+  function backupNow(){
+    if (!db || !db.exportAll) return toast('Backup isn\u2019t available right now.');
+    var payload = {app:'debt-tracker', version:1, exported:new Date().toISOString(), data:db.exportAll()};
+    var blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+    var url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = 'debt-tracker-backup-' + isoToday() + '.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 5000);
+    try { localStorage.setItem('debt-tracker-last-backup', isoToday()); } catch(e){}
+    paintBackupNote(); toast('Backup saved \ud83d\udcbe');
+  }
+
   function render(){
     var g = $('#grand'), aff = 0, oth = 0;
-    Object.keys(plans).forEach(function(k){ aff += remaining(plans[k]); });
+    Object.keys(plans).forEach(function(k){ if (!plans[k].archived) aff += remaining(plans[k]); });
     Object.keys(cards).forEach(function(k){ oth += Number(cards[k].balance) || 0; });
     g.textContent = '';
     g.appendChild(h('div',{class:'k',text:'Total debt, everything'}));
@@ -785,8 +1015,12 @@ input[type=number],input[type=date],input[type=search],input[type=text],select{b
     g.appendChild(h('div',{class:'meta',text:'Affirm ' + money(r2(aff)) + ' · Other debts ' + money(r2(oth))}));
     $('#affirmTab').hidden = ui.tab !== 'affirm';
     $('#cardsTab').hidden = ui.tab !== 'cards';
+    $('#upcomingTab').hidden = ui.tab !== 'upcoming';
+    $('#progressTab').hidden = ui.tab !== 'progress';
     Array.prototype.forEach.call($('#tabs').children, function(t){ t.setAttribute('aria-pressed', t.getAttribute('data-tab') === ui.tab ? 'true' : 'false'); });
     if (ui.tab === 'cards') { renderCards(); return; }
+    if (ui.tab === 'upcoming') { renderUpcoming(); return; }
+    if (ui.tab === 'progress') { renderProgress(); return; }
     var ae = document.activeElement, key = null, selS = null, selE = null;
     var host = $('#list');
     if (ae && ae.tagName === 'INPUT' && host.contains(ae) && ae.getAttribute('data-id')) {
@@ -814,7 +1048,7 @@ input[type=number],input[type=date],input[type=search],input[type=text],select{b
     else if (!Object.keys(plans).length) host.appendChild(h('div',{class:'empty',text:'No plans yet. Tap + Add plan to enter one.'}));
     else if (!items.length) host.appendChild(h('div',{class:'empty',text:'Nothing matches that filter.'}));
     else items.forEach(function(x){ host.appendChild(compactCard(x)); });
-    $('#count').textContent = (loaded && !detail) ? ('Showing ' + items.length + ' of ' + Object.keys(plans).length + ' plans') : '';
+    $('#count').textContent = (loaded && !detail) ? ('Showing ' + items.length + ' of ' + Object.keys(plans).filter(function(k){ return !plans[k].archived; }).length + ' plans') : '';
     if (key) {
       var parts = key.split('|');
       var el = host.querySelector('input[data-id="' + parts[0] + '"][data-act="' + parts[1] + '"]');
@@ -977,7 +1211,19 @@ input[type=number],input[type=date],input[type=search],input[type=text],select{b
     }
     else if (act === 'pAdd') { ui.view = null; ui.pedit = 'new'; ui.edit = null; ui.auto = null; ui.pd = {name:'', emoji:'', balance:'', done:0, total:12, autopay:'off'}; render(); }
     else if (act === 'emojiPick') { var emj = b.getAttribute('data-emoji'); if (ui.cardEdit === id && ui.cd) ui.cd.emoji = emj; else if (ui.pd) ui.pd.emoji = emj; render(); }
-    else if (act === 'pCancel') { ui.pedit = null; ui.pd = null; render(); }
+    else if (act === 'pCancel') { ui.pedit = null; ui.pd = null; ui.pdel = false; render(); }
+    else if (act === 'pArch') {
+      var ap = getP(id); if (!ap) return;
+      save(id, {archived: !ap.archived});
+      ui.pedit = null; ui.pd = null; ui.pdel = false; ui.view = null; render();
+      toast(ap.archived ? 'Moved back to your plans.' : 'Archived. Find it under the Archived filter.');
+    }
+    else if (act === 'pDel') {
+      if (!ui.pdel) { ui.pdel = true; render(); return toast('Tap Delete again to confirm.'); }
+      ui.pdel = false; ui.pedit = null; ui.pd = null; ui.view = null;
+      enqueue(id, function(){ return planRef(id).delete(); });
+      render(); toast('Plan deleted.');
+    }
     else if (act === 'pSave') savePlan(id);
     else if (act === 'open') { ui.scrollY = window.scrollY; ui.view = id; ui.edit = null; ui.ed = null; ui.auto = null; render(); window.scrollTo(0, 0); }
     else if (act === 'back') { ui.pedit = null; ui.view = null; ui.edit = null; ui.ed = null; ui.auto = null; render(); window.scrollTo(0, ui.scrollY || 0); }
@@ -1012,6 +1258,34 @@ input[type=number],input[type=date],input[type=search],input[type=text],select{b
   }
   wireList($('#list'));
   wireList($('#cardsTab'));
+  wireList($('#upcomingTab'));
+  $('#upcomingTab').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-act="uOpen"]'); if (!b) return;
+    var id = b.getAttribute('data-id'), kind = b.getAttribute('data-kind');
+    ui.edit = null; ui.ed = null; ui.auto = null; ui.pedit = null; ui.pd = null; ui.cardEdit = null; ui.cd = null;
+    if (kind === 'debt') { ui.tab = 'cards'; ui.dview = id; } else { ui.tab = 'affirm'; ui.view = id; }
+    render(); window.scrollTo(0, 0);
+  });
+  $('#backupBtn').addEventListener('click', backupNow);
+  $('#restoreBtn').addEventListener('click', function(){ $('#restoreFile').click(); });
+  $('#restoreFile').addEventListener('change', function(e){
+    var f = e.target.files && e.target.files[0]; if (!f) return;
+    var r = new FileReader();
+    r.onload = function(){
+      try {
+        var o = JSON.parse(r.result);
+        if (!o || o.app !== 'debt-tracker' || !o.data || typeof o.data !== 'object') throw new Error('bad file');
+        if (!window.confirm('Replace everything in the app with this backup?')) return;
+        db.importAll(o.data); toast('Backup restored \ud83d\udc96');
+      } catch(err) { toast('That doesn\u2019t look like a Debt Tracker backup.'); }
+    };
+    r.readAsText(f); e.target.value = '';
+  });
+  paintBackupNote();
+  $('#gearBtn').addEventListener('click', function(){
+    var panel = $('#toolsPanel'); panel.hidden = !panel.hidden;
+    this.setAttribute('aria-expanded', panel.hidden ? 'false' : 'true');
+  });
 
   /* ---------- startup ---------- */
   var CHEERS = [
@@ -1063,6 +1337,8 @@ input[type=number],input[type=date],input[type=search],input[type=text],select{b
       })};
     }
     return {
+      exportAll: function(){ return copy(store); },
+      importAll: function(o){ store = copy(o); persist(); notify(); },
       doc: function(path){
         var id = path.split('/').pop();
         return {
@@ -1088,18 +1364,20 @@ input[type=number],input[type=date],input[type=search],input[type=text],select{b
     uid = 'local'; db = makeLocalDb();
     var timer = null;
     db.collection('data/users/' + uid).onSnapshot(function(snap){
-      var np = {}, ns = {}, nc = {};
+      var np = {}, ns = {}, nc = {}, nh = [];
       snap.docs.forEach(function(d){
         var data = d.data() || {};
         if (d.id === 'settings') ns = data;
         else if (d.id.indexOf('plan-') === 0) np[d.id] = data;
         else if (d.id.indexOf('card-') === 0) nc[d.id] = data;
+        else if (d.id === 'history') nh = data.points || [];
       });
-      plans = np; settings = ns; cards = nc; loaded = true;
+      plans = np; settings = ns; cards = nc; hist = nh; loaded = true;
       if (!snap.metadata.fromCache) clearTimeout(timer);
       if (!cheerOn) startCheer();
       var nd = $('#nextDue'); if (document.activeElement !== nd) nd.value = settings.nextDue || '';
       render();
+      recordHistory();
     }, function(){
       clearTimeout(timer); loaded = true; setStatus('Couldn’t load your saved data.'); render();
     });
