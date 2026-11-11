@@ -225,6 +225,12 @@ div.fld{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mu
 .bar i.u-red{background:var(--bad)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .bar i.u-yellow{background:#ffd166}}
 :root[data-theme="dark"] .bar i.u-yellow{background:#ffd166}
+.monthnav{display:flex;align-items:center;gap:8px;margin:0 0 12px}
+.mlabel{flex:1;text-align:center;font-size:20px;font-weight:700;color:var(--accent)}
+.mnb{width:46px;height:46px;padding:0;font-size:24px;line-height:1;flex-shrink:0}
+.chips{gap:10px}
+.kinds{margin:6px 0 16px}
+.kinds .chip{padding:9px 16px}
 </style>
 </head>
 <body>
@@ -961,8 +967,8 @@ div.fld{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mu
     return out;
   }
   function urow(x){
-    var late = x.date < isoToday();
     var isRec = x.kind === 'bill' || x.kind === 'sub';
+    var late = !isRec && x.date < isoToday();
     var tick = x.sid
       ? h('button',{class:'tick','data-act':'toggle','data-id':x.id,'data-sid':x.sid,'aria-label':'Mark paid: ' + x.p.name,text:'\u2661'})
       : h('span',{class:'tickgap'});
@@ -974,48 +980,66 @@ div.fld{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mu
   }
   function renderUpcoming(){
     var host = $('#upcomingTab'); host.textContent = '';
-    if (!loaded) { host.appendChild(h('div',{class:'empty',text:'Loading\u2026'})); return; }
+    if (!loaded) { host.appendChild(h('div',{class:'empty',text:'Loading…'})); return; }
     function kindOk(x){
       var ks = Object.keys(ui.dueKinds); if (!ks.length) return true;
       return !!ui.dueKinds[x.kind === 'bill' ? 'bills' : (x.kind === 'sub' ? 'subs' : 'debts')];
     }
-    var items = collectUpcoming().filter(kindOk), today = isoToday();
-    var d7 = new Date(); d7.setDate(d7.getDate() + 7); var lim7 = isoOf(d7);
-    var d30 = new Date(); d30.setDate(d30.getDate() + 30); var lim30 = isoOf(d30);
-    var g = {over:[], wk:[], mo:[], later:[]}, sums = {over:0, wk:0, mo:0};
-    items.forEach(function(x){
-      var k = x.date < today ? 'over' : (x.date <= lim7 ? 'wk' : (x.date <= lim30 ? 'mo' : 'later'));
-      g[k].push(x); if (k !== 'later') sums[k] += x.amount || 0;
+    var cur = isoToday().slice(0, 7), mk = ui.dueMonth || cur;
+    var parts = mk.split('-'), y = Number(parts[0]), m = Number(parts[1]) - 1;
+    var mStart = mk + '-01', mEnd = new Date(y, m + 1, 0);
+    var monthLabel = new Date(y, m, 1).toLocaleDateString('en-US', {month:'long', year:'numeric'});
+    var monthName = new Date(y, m, 1).toLocaleDateString('en-US', {month:'long'});
+    var debtItems = collectUpcoming().filter(function(x){ return x.kind === 'plan' || x.kind === 'debt'; });
+    var items = debtItems.filter(function(x){ return x.date.slice(0, 7) === mk; });
+    var earlier = (mk === cur) ? debtItems.filter(function(x){ return x.date < mStart; }) : [];
+    ['bill', 'sub'].forEach(function(kind){
+      var map = recurMap(kind);
+      Object.keys(map).forEach(function(id){
+        var it = map[id]; if (it.archived || !it.due) return;
+        var base = isoToLocal(it.due); if (!base) return;
+        for (var k = 0; k < 4000; k++) {
+          var d = stepDate(base, it.freq, k);
+          if (d > mEnd) break;
+          if (d.getFullYear() === y && d.getMonth() === m) items.push({id:id, sid:null, kind:kind, p:Object.assign({}, it, {rkind:kind}), date:isoOf(d), amount:Number(it.amount) || 0, note:'', cat:it.category || ''});
+        }
+      });
     });
+    items = items.filter(kindOk); earlier = earlier.filter(kindOk);
+    items.sort(function(a, b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : (a.p.name || '').localeCompare(b.p.name || '')); });
+    var total = 0; items.forEach(function(x){ total += x.amount || 0; });
+    var earlyTotal = 0; earlier.forEach(function(x){ earlyTotal += x.amount || 0; });
+
+    host.appendChild(h('div',{class:'monthnav'},
+      h('button',{class:'btn ghost mnb','data-act':'mPrev','aria-label':'Previous month',text:'‹'}),
+      h('div',{class:'mlabel',text:monthLabel}),
+      h('button',{class:'btn ghost mnb','data-act':'mNext','aria-label':'Next month',text:'›'})));
+    if (mk !== cur) host.appendChild(h('div',{class:'toolbar'}, h('button',{class:'btn ghost','data-act':'mToday',text:'Back to this month'})));
     var sum = h('div',{class:'summary'});
     function stat(k, v){ sum.appendChild(h('div',{class:'stat'}, h('div',{class:'k',text:k}), h('div',{class:'v',text:v}))); }
-    stat('Overdue', money(r2(sums.over)));
-    stat('Next 7 days', money(r2(sums.wk)));
-    stat('Next 30 days', money(r2(sums.wk + sums.mo)));
-    stat('Payments scheduled', String(items.length));
+    stat('Due in ' + monthName, money(r2(total)));
+    stat('Payments', String(items.length));
     host.appendChild(sum);
-    var kr = h('div',{class:'chips'});
+    var kr = h('div',{class:'chips kinds'});
     [['debts','Debts'],['bills','Bills'],['subs','Subscriptions']].forEach(function(o){
       kr.appendChild(h('button',{class:'chip','data-act':'dueKind','data-v':o[0],'aria-pressed':ui.dueKinds[o[0]] ? 'true' : 'false',text:o[1]}));
     });
     host.appendChild(kr);
+
+    if (earlier.length) {
+      var od = h('details',{class:'sched ugroup'}, h('summary',{text:'Overdue from earlier (' + earlier.length + ') · ' + money(r2(earlyTotal))}));
+      earlier.sort(function(a, b){ return a.date < b.date ? -1 : 1; }).forEach(function(x){ od.appendChild(urow(x)); });
+      if (ui.rOpen['due:over'] !== false) od.setAttribute('open','');
+      od.addEventListener('toggle', function(){ ui.rOpen['due:over'] = od.open; });
+      host.appendChild(h('div',{class:'card'}, od));
+    }
     if (!items.length) {
-      host.appendChild(h('div',{class:'empty',text:'Nothing scheduled yet. Add scheduled payments or a due date to a plan or debt and it will show up here \ud83d\udc97'}));
+      if (!earlier.length) host.appendChild(h('div',{class:'empty',text:'Nothing due in ' + monthName + ' 💗'}));
       return;
     }
-    function group(key, title, arr){
-      if (!arr.length) return;
-      var total = arr.reduce(function(sm, x){ return sm + (x.amount || 0); }, 0);
-      var det = h('details',{class:'sched ugroup'}, h('summary',{text:title + ' (' + arr.length + ')' + (total > 0 ? ' \u00b7 ' + money(r2(total)) : '')}));
-      arr.forEach(function(x){ det.appendChild(urow(x)); });
-      if (openUp[key]) det.setAttribute('open','');
-      det.addEventListener('toggle', function(){ openUp[key] = det.open; });
-      host.appendChild(h('div',{class:'card'}, det));
-    }
-    group('over', 'Overdue', g.over);
-    group('wk', 'Next 7 days', g.wk);
-    group('mo', 'Next 30 days', g.mo);
-    group('later', 'Later', g.later);
+    var card = h('div',{class:'card'}, h('p',{class:'name',text:'📅 ' + monthLabel + ' (' + items.length + ')'}));
+    items.forEach(function(x){ card.appendChild(urow(x)); });
+    host.appendChild(card);
   }
 
   /* ---------- progress chart ---------- */
@@ -1978,6 +2002,12 @@ div.fld{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mu
   $('#upcomingTab').addEventListener('click', function(e){
     var b = e.target.closest('button[data-act]'); if (!b) return;
     var act = b.getAttribute('data-act'), id = b.getAttribute('data-id'), kind = b.getAttribute('data-kind');
+    if (act === 'mPrev' || act === 'mNext' || act === 'mToday') {
+      var cm2 = isoToday().slice(0, 7), mk2 = ui.dueMonth || cm2, pa = mk2.split('-'), pc = cm2.split('-');
+      var nd = act === 'mToday' ? new Date(Number(pc[0]), Number(pc[1]) - 1, 1) : new Date(Number(pa[0]), Number(pa[1]) - 1 + (act === 'mNext' ? 1 : -1), 1);
+      ui.dueMonth = nd.getFullYear() + '-' + String(nd.getMonth() + 1).padStart(2, '0');
+      render(); return;
+    }
     if (act === 'dueKind') {
       var v = b.getAttribute('data-v');
       if (ui.dueKinds[v]) delete ui.dueKinds[v]; else ui.dueKinds[v] = true;
