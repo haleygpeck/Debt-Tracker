@@ -158,7 +158,31 @@ input[type=number],input[type=date],input[type=search],input[type=text],select{b
 /* iPhone zooms into any box with text smaller than 16px, so keep every box at 16px or bigger */
 input,select,textarea{font-size:16px!important}
 button,input,select,.ccard,.sinfo,.tick,.tab,.chip{touch-action:manipulation}
-.tabs{gap:4px}
+.sticker{margin-right:6px}
+.sticker.prio-high{background:var(--accent);color:var(--accent-text)}
+.ugroup{margin-top:0}
+.filt{margin-top:12px}
+.filt>summary{color:var(--text);font-weight:600}
+.fgroup{margin:10px 0 4px;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.optrow{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;background:transparent;border:0;border-top:1px solid var(--line);padding:12px 4px;text-align:left;font-size:16px;color:var(--text);cursor:pointer}
+.optrow.on{font-weight:700;color:var(--accent)}
+.optrow .ck{font-size:18px}
+.fld{min-width:0}
+div.fld{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);flex:1;min-width:130px}
+.msel{position:relative}
+.msel-btn{width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:9px 12px;min-height:42px;font-size:16px;color:var(--text);text-align:left;cursor:pointer}
+.msel-btn .mt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.msel-btn .car{color:var(--accent);flex-shrink:0}
+.msel-btn .plus{background:var(--accent);color:var(--accent-text);border-radius:999px;padding:0 8px;font-size:13px;font-weight:700;flex-shrink:0}
+.msel-pop{position:absolute;left:0;top:calc(100% + 6px);width:max(100%,280px);max-width:calc(100vw - 40px);z-index:30;background:var(--bg);border:1px solid var(--line);border-radius:18px;padding:4px 14px 14px;box-shadow:0 10px 28px rgba(0,0,0,.2)}
+.msel-pop .optrow{padding:11px 2px}
+.msel-pop .optrow:first-of-type{border-top:0}
+.msel-pop .btn{margin-top:6px;width:100%}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.tab{flex:none}
+.mrow{display:flex;justify-content:space-between;gap:10px;padding:9px 2px;border-top:1px solid var(--line)}
+.mrow.tot{font-weight:700;font-size:18px;color:var(--accent)}
+.hsec{margin:18px 4px 8px;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em;font-weight:600}
 .tab{padding:10px 2px;font-size:13px;white-space:nowrap}
 .tickgap{width:38px;height:38px;flex-shrink:0}
 .gear{right:auto;left:14px}
@@ -189,13 +213,16 @@ button,input,select,.ccard,.sinfo,.tick,.tab,.chip{touch-action:manipulation}
     <input type="file" id="restoreFile" accept="application/json,.json" hidden>
     <p class="note" id="backupNote"></p>
   </div>
-  <div class="stat" id="grand"></div>
   <div class="tabs" id="tabs">
-    <button class="tab" data-tab="affirm" aria-pressed="true">💗 Affirm</button>
+    <button class="tab" data-tab="home" aria-pressed="true">🏠 Home</button>
+    <button class="tab" data-tab="affirm" aria-pressed="false">💗 Affirm</button>
     <button class="tab" data-tab="cards" aria-pressed="false">💳 Other</button>
+    <button class="tab" data-tab="bills" aria-pressed="false">🧾 Bills</button>
+    <button class="tab" data-tab="subs" aria-pressed="false">🔁 Subs</button>
     <button class="tab" data-tab="upcoming" aria-pressed="false">📅 Due soon</button>
     <button class="tab" data-tab="progress" aria-pressed="false">📈 Progress</button>
   </div>
+  <div class="stat" id="grand"></div>
 
   <div id="affirmTab">
   <div id="browse">
@@ -203,21 +230,9 @@ button,input,select,.ccard,.sinfo,.tick,.tab,.chip{touch-action:manipulation}
 
   <div class="panel">
     <div class="row">
-      <label class="fld">Sort by
-        <select id="sort">
-          <option value="bal-asc">Balance: least to greatest</option>
-          <option value="bal-desc">Balance: greatest to least</option>
-          <option value="pay-asc">Payoff: soonest first</option>
-          <option value="pay-desc">Payoff: latest first</option>
-          <option value="due">Next due: soonest first</option>
-          <option value="name">Name: A to Z</option>
-        </select>
-      </label>
+      <div class="fld"><span>Sort by</span><div id="sortSel"></div></div>
       <label class="fld">Search
         <input type="search" id="q" placeholder="e.g. Amazon">
-      </label>
-      <label class="fld">Default due date
-        <input type="date" id="nextDue">
       </label>
     </div>
     <div class="chips" id="chips">
@@ -235,6 +250,9 @@ button,input,select,.ccard,.sinfo,.tick,.tab,.chip{touch-action:manipulation}
   <div id="cardsTab" hidden></div>
   <div id="upcomingTab" hidden></div>
   <div id="progressTab" hidden></div>
+  <div id="homeTab" hidden></div>
+  <div id="billsTab" hidden></div>
+  <div id="subsTab" hidden></div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <canvas id="fx" aria-hidden="true"></canvas>
@@ -244,7 +262,7 @@ button,input,select,.ccard,.sinfo,.tick,.tab,.chip{touch-action:manipulation}
   var $ = function(s){return document.querySelector(s);};
   var money = function(n){return n.toLocaleString('en-US',{style:'currency',currency:'USD'});};
   var r2 = function(n){return Math.round(n*100)/100;};
-  var hist = [], openLater = false, plans = {}, settings = {}, cards = {}, cardPay = {}, ui = {sort:'bal-asc', filter:'all', q:'', edit:null, ed:null, auto:null, tab:'affirm', cardEdit:null, cd:null, cardSort:'bal-desc', confirmDel:null};
+  var hist = [], openLater = false, openUp = {over:true, wk:true, mo:false, later:false}, plans = {}, bills = {}, subs = {}, settings = {}, cards = {}, cardPay = {}, ui = {sorts:['bal-asc'], csorts:['bal-desc'], sortOpen:false, cSortOpen:false, filters:{}, cf:{types:{}, prios:{}}, cfOpen:false, q:'', edit:null, ed:null, auto:null, tab:'home', rEdit:null, rd:null, rdel:false, cgEdit:null, cg:null, cgdel:false, rOpen:{}, dueKinds:{}, cardEdit:null, cd:null, confirmDel:null};
   var drafts = {}, openHist = {}, openS = {}, db = null, uid = null, loaded = false, queues = {}, toastT = null;
 
   function toast(msg){
@@ -324,7 +342,7 @@ button,input,select,.ccard,.sinfo,.tick,.tab,.chip{touch-action:manipulation}
     if (t) fx.burst(x, y, 9, true);
   }, true);
 
-  var PICKS = ['🛍️','🎀','💖','✨','🍔','🎫','📚','🏨','👗','👠','💄','🐾','📦','🛒','🚗','💳','🏠','✈️','🎧','💍'];
+  var PICKS = ['🛍️','🎀','💖','✨','🍔','🎫','📚','🏨','👗','👠','💄','🐾','📦','🛒','🚗','💳','🏠','✈️','🎧','💍','🎬','🎵','📱','💡','🚿','📺','🏋️','☁️'];
   function emojiPicks(id){
     var d = h('div',{class:'picks'});
     PICKS.forEach(function(em){ d.appendChild(h('button',{class:'pick','data-act':'emojiPick','data-id':id,'data-emoji':em,'aria-label':'Use ' + em,text:em})); });
@@ -333,6 +351,12 @@ button,input,select,.ccard,.sinfo,.tick,.tab,.chip{touch-action:manipulation}
   function emojiFor(p){
     if (p.emoji) return p.emoji;
     var n = (p.name || '').toLowerCase();
+    if (p.rkind) {
+      var RK = [['netflix','🎬'],['hulu','📺'],['disney','🏰'],['spotify','🎵'],['youtube','📺'],['icloud','☁️'],['gym','🏋️'],['rent','🏠'],['mortgage','🏠'],['electric','💡'],['water','🚿'],['internet','🌐'],['phone','📱'],['insurance','🛡️'],['amazon','📦'],['hbo','🎬'],['paramount','🎬'],['peacock','🎬']];
+      for (var j = 0; j < RK.length; j++) if (n.indexOf(RK[j][0]) >= 0) return RK[j][1];
+      var CE = {'Housing':'🏠','Utilities':'💡','Phone & internet':'📱','Insurance':'🛡️','Transportation':'🚗','Medical':'🏥','Childcare':'🧸','Streaming':'🎬','Music':'🎵','Apps & software':'📱','Shopping':'🛍️','Fitness':'🏋️','News & reading':'📰','Gaming':'🎮','Cloud storage':'☁️'};
+      return CE[p.category] || (p.rkind === 'bill' ? '🧾' : '🔁');
+    }
     var map = [['doordash','🍔'],['stubhub','🎫'],['ticket','🎫'],['goodwill','👗'],['barnes','📚'],['hilton','🏨'],['hotel','🏨'],['ross','👗'],['vet','🐾'],['amazon','📦'],['maxx','🛍️'],['meijer','🛒'],['walmart','🛒'],['macy','👠'],['shein','👗'],['lovisa','💍'],['best buy','🎧'],['target','🎯'],['uber','🚗'],['sephora','💄'],['ulta','💄']];
     for (var i = 0; i < map.length; i++) if (n.indexOf(map[i][0]) >= 0) return map[i][1];
     if (p.isDebt) return {'Credit card':'💳','Personal loan':'💸','Auto loan':'🚗','Student loan':'🎓','Medical':'🏥','Family or friend':'👭'}[p.type || ''] || '✨';
@@ -427,24 +451,28 @@ button,input,select,.ccard,.sinfo,.tick,.tab,.chip{touch-action:manipulation}
     var arr = Object.keys(plans).map(function(id){ var p = plans[id]; var inf = info(p); return {id:id, p:p, inf:inf, rem:inf.rem}; });
     var q = ui.q.trim().toLowerCase();
     arr = arr.filter(function(x){
-      if (ui.filter === 'archived') return !!x.p.archived;
-      if (x.p.archived) return false;
+      var F = ui.filters;
+      if (F.archived) { if (!x.p.archived) return false; } else if (x.p.archived) return false;
       if (q && x.p.name.toLowerCase().indexOf(q) < 0) return false;
-      if (ui.filter === 'open') return x.rem > 0.004;
-      if (ui.filter === 'paid') return x.rem <= 0.004;
-      if (ui.filter === 'auto') return !!x.p.autopay;
+      if (F.open || F.paid) {
+        if (!((F.open && x.rem > 0.004) || (F.paid && x.rem <= 0.004))) return false;
+      }
+      if (F.auto && !x.p.autopay) return false;
       return true;
     });
-    var s = ui.sort;
     function pt(x){ return x.inf.payoff ? x.inf.payoff.getTime() : -1; }
+    var CMP = {
+      'bal-asc': function(a,b){ return a.rem - b.rem; },
+      'bal-desc': function(a,b){ return b.rem - a.rem; },
+      'pay-asc': function(a,b){ return pt(a) - pt(b); },
+      'pay-desc': function(a,b){ return pt(b) - pt(a); },
+      'due': function(a,b){ return dueT(a) - dueT(b); },
+      'name': function(a,b){ return a.p.name.localeCompare(b.p.name); }
+    };
     arr.sort(function(a,b){
       var d = 0;
-      if (s === 'bal-asc') d = a.rem - b.rem;
-      else if (s === 'bal-desc') d = b.rem - a.rem;
-      else if (s === 'pay-asc') d = pt(a) - pt(b);
-      else if (s === 'pay-desc') d = pt(b) - pt(a);
-      else if (s === 'due') d = dueT(a) - dueT(b);
-      if (d === 0) d = a.p.name.localeCompare(b.p.name) || a.id.localeCompare(b.id);
+      for (var i = 0; i < ui.sorts.length && !d; i++) { var f = CMP[ui.sorts[i]]; if (f) d = f(a, b); }
+      if (!d) d = a.p.name.localeCompare(b.p.name) || a.id.localeCompare(b.id);
       return d;
     });
     return arr;
@@ -575,7 +603,7 @@ button,input,select,.ccard,.sinfo,.tick,.tab,.chip{touch-action:manipulation}
 
     return h('div',{class:'card' + (done ? ' done' : ''),'data-card':id},
       h('div',{class:'top'},
-        h('div',{}, h('p',{class:'name',text:emojiFor(p) + ' ' + p.name}), stickerEl(pct, done),
+        h('div',{}, h('p',{class:'name',text:emojiFor(p) + ' ' + p.name}), stickerEl(pct, done), (p.isDebt ? prioEl(p) : null),
           h('div',{class:'meta',text: p.isDebt ? ((p.type || 'Debt') + (p.apr > 0 ? ' · APR ' + p.apr + '%' : '')) : ((p.done||0) + ' of ' + (p.total||0) + ' payments when added · AutoPay ' + (p.autopay ? 'on' : 'off'))})),
         h('div',{class:'bal'}, h('b',{text:money(rem)}), h('span',{text:'remaining'}))),
       h('div',{class:'bar'}, bar),
@@ -664,10 +692,13 @@ button,input,select,.ccard,.sinfo,.tick,.tab,.chip{touch-action:manipulation}
     var ts = h('select',{'data-act':'cf-type','data-id':id,'aria-label':'Debt type'});
     TYPES.forEach(function(t){ ts.appendChild(h('option',{value:t,text:t})); });
     ts.value = e.type || 'Credit card';
+    var ps = h('select',{'data-act':'cf-priority','data-id':id,'aria-label':'Priority'});
+    [['','None'],['high','🔥 High'],['medium','⭐ Medium'],['low','🌱 Low']].forEach(function(o){ ps.appendChild(h('option',{value:o[0],text:o[1]})); });
+    ps.value = e.priority || '';
     return h('div',{class:'editor'},
       labeled('Debt name', inp('cf-name','text',e.name,'e.g. Chase card, car loan')),
       labeled('Emoji (optional)', inp('cf-emoji','text',e.emoji)), emojiPicks(id),
-      labeled('Type', ts),
+      h('div',{class:'grid2'}, labeled('Type', ts), labeled('Priority', ps)),
       h('div',{class:'grid2'}, labeled('Balance', inp('cf-bal','number',e.balance)), isCard ? labeled('Credit limit (optional)', inp('cf-limit','number',e.limit)) : labeled('Original amount (optional)', inp('cf-orig','number',e.orig))),
       h('div',{class:'grid2'}, labeled('APR % (optional)', inp('cf-apr','number',e.apr)), labeled('Minimum payment (optional)', inp('cf-min','number',e.min))),
       labeled('Payment due date (optional)', inp('cf-due','date',e.due)),
@@ -701,6 +732,9 @@ button,input,select,.ccard,.sinfo,.tick,.tab,.chip{touch-action:manipulation}
     if (c.updated) el.appendChild(h('div',{class:'meta',text:'Updated ' + fmtDate(isoToLocal(c.updated))}));
     return el;
   }
+  var PRIO = {high:['🔥','High priority'], medium:['⭐','Medium priority'], low:['🌱','Low priority']};
+  var PRANK = {high:0, medium:1, low:2};
+  function prioEl(p){ var m = PRIO[p.priority]; return m ? h('span',{class:'sticker prio-' + p.priority,text:m[0] + ' ' + m[1]}) : null; }
   function debtItem(x){
     var id = x.id, p = debtP(id), inf = info(p), bal = inf.rem;
     var pct = p.start > 0 ? Math.min(100, Math.max(0, (p.start - bal) / p.start * 100)) : 100;
@@ -715,7 +749,7 @@ button,input,select,.ccard,.sinfo,.tick,.tab,.chip{touch-action:manipulation}
     else line = 'Tap to schedule payments';
     return h('div',{class:'ccard' + (bal <= 0.004 ? ' done' : ''),role:'button',tabindex:'0','data-act':'dOpen','data-id':id,'aria-label':'Open ' + p.name},
       h('div',{class:'top'},
-        h('div',{}, h('span',{class:'name',text:emojiFor(p) + ' ' + p.name}), stickerEl(pct, bal <= 0.004), h('div',{class:'meta',text:bits.join(' · ')})),
+        h('div',{}, h('span',{class:'name',text:emojiFor(p) + ' ' + p.name}), stickerEl(pct, bal <= 0.004), prioEl(p), h('div',{class:'meta',text:bits.join(' · ')})),
         h('div',{class:'bal'}, h('b',{text:money(bal)}), h('span',{text:'balance'}))),
       h('div',{class:'bar'}, bar),
       h('div',{class:'meta' + (late ? ' bad' : ''),text:line}));
@@ -750,13 +784,24 @@ button,input,select,.ccard,.sinfo,.tick,.tab,.chip{touch-action:manipulation}
     var arr = Object.keys(cards).map(function(id){ return {id:id, c:cards[id]}; });
     var total = 0, mins = 0, lim = 0, limBal = 0;
     arr.forEach(function(x){ var c = x.c; total += c.balance || 0; mins += c.min || 0; if (c.limit > 0) { lim += c.limit; limBal += c.balance || 0; } });
-    var s = ui.cardSort;
+    var tf = ui.cf.types, pf = ui.cf.prios, anyT = Object.keys(tf).length, anyP = Object.keys(pf).length, allCount = arr.length;
+    arr = arr.filter(function(x){
+      var c = x.c;
+      if (anyT && !tf[c.type || 'Credit card']) return false;
+      if (anyP && !pf[c.priority || 'none']) return false;
+      return true;
+    });
+    var CMPD = {
+      'bal-asc': function(a,b){ return (a.c.balance||0) - (b.c.balance||0); },
+      'bal-desc': function(a,b){ return (b.c.balance||0) - (a.c.balance||0); },
+      'due': function(a,b){ return (info(debtP(a.id)).next || a.c.due || '9999').localeCompare(info(debtP(b.id)).next || b.c.due || '9999'); },
+      'type': function(a,b){ return (a.c.type || '').localeCompare(b.c.type || ''); },
+      'priority': function(a,b){ return (a.c.priority in PRANK ? PRANK[a.c.priority] : 3) - (b.c.priority in PRANK ? PRANK[b.c.priority] : 3); },
+      'name': function(a,b){ return (a.c.name||'').localeCompare(b.c.name||''); }
+    };
     arr.sort(function(a,b){
       var d = 0;
-      if (s === 'bal-asc') d = (a.c.balance||0) - (b.c.balance||0);
-      else if (s === 'bal-desc') d = (b.c.balance||0) - (a.c.balance||0);
-      else if (s === 'due') d = (info(debtP(a.id)).next || a.c.due || '9999').localeCompare(info(debtP(b.id)).next || b.c.due || '9999');
-      else if (s === 'type') d = (a.c.type || '').localeCompare(b.c.type || '');
+      for (var i = 0; i < ui.csorts.length && !d; i++) { var f = CMPD[ui.csorts[i]]; if (f) d = f(a, b); }
       if (!d) d = (a.c.name||'').localeCompare(b.c.name||'');
       return d;
     });
@@ -765,19 +810,31 @@ button,input,select,.ccard,.sinfo,.tick,.tab,.chip{touch-action:manipulation}
     stat('Total other debts', money(r2(total)));
     stat('Minimums', mins > 0 ? money(r2(mins)) : '—');
     stat('Card credit used', lim > 0 ? Math.round(limBal / lim * 100) + '% of ' + money(lim) : '—');
-    stat('Debts', String(arr.length));
+    stat('Debts', String(allCount));
     host.appendChild(sum);
-    var sel = h('select',{'data-act':'csort','aria-label':'Sort cards'});
-    [['bal-desc','Balance: greatest to least'],['bal-asc','Balance: least to greatest'],['due','Due date: soonest first'],['type','Type'],['name','Name: A to Z']].forEach(function(o){
-      var op = h('option',{value:o[0],text:o[1]}); sel.appendChild(op);
-    });
-    sel.value = ui.cardSort;
+    var nAct = anyT + anyP;
+    var filtDet = h('details',{class:'filt'}, h('summary',{text:'🔎 Filters' + (nAct ? ' (' + nAct + ' on)' : '')}));
+    if (ui.cfOpen) filtDet.setAttribute('open','');
+    filtDet.addEventListener('toggle', function(){ ui.cfOpen = filtDet.open; });
+    var present = TYPES.filter(function(t){ return Object.keys(cards).some(function(k){ return (cards[k].type || 'Credit card') === t; }); });
+    function chipRow(label, g, opts){
+      filtDet.appendChild(h('div',{class:'fgroup',text:label}));
+      var row = h('div',{class:'chips'});
+      opts.forEach(function(o){
+        row.appendChild(h('button',{class:'chip','data-act':'cf','data-g':g,'data-v':o[0],'aria-pressed':ui.cf[g][o[0]] ? 'true' : 'false',text:o[1]}));
+      });
+      filtDet.appendChild(row);
+    }
+    chipRow('Type', 'types', present.map(function(t){ return [t, t]; }));
+    chipRow('Priority', 'prios', [['high','🔥 High'],['medium','⭐ Medium'],['low','🌱 Low'],['none','No priority']]);
+    if (nAct) filtDet.appendChild(h('div',{class:'chips'}, h('button',{class:'chip','data-act':'cfClear',text:'✕ Clear filters','aria-pressed':'false'})));
     host.appendChild(h('div',{class:'panel'}, h('div',{class:'row'},
-      h('label',{class:'fld',text:'Sort by'}, sel),
-      h('button',{class:'btn','data-act':'cAdd',text:'+ Add debt'}))));
+      h('div',{class:'fld'}, h('span',{text:'Sort by'}), buildMulti('debt', CSORTS, ui.csorts, ui.cSortOpen)),
+      h('button',{class:'btn','data-act':'cAdd',text:'+ Add debt'})), filtDet));
+    if (nAct) host.appendChild(h('p',{class:'note',text:'Showing ' + arr.length + ' of ' + allCount + ' debts'}));
     if (ui.cardEdit === 'new') host.appendChild(h('div',{class:'card'}, cardEditor('new')));
     if (!loaded) host.appendChild(h('div',{class:'empty',text:'Loading…'}));
-    else if (!arr.length && ui.cardEdit !== 'new') host.appendChild(h('div',{class:'empty',text:'No other debts yet. Tap + Add debt to enter one.'}));
+    else if (!arr.length && ui.cardEdit !== 'new') host.appendChild(h('div',{class:'empty',text: allCount ? 'No debts match those filters.' : 'No other debts yet. Tap + Add debt to enter one.'}));
     else arr.forEach(function(x){ host.appendChild(debtItem(x)); });
     if (key) {
       var parts = key.split('|');
@@ -792,7 +849,7 @@ button,input,select,.ccard,.sinfo,.tick,.tab,.chip{touch-action:manipulation}
     if (!isFinite(bal) || bal < 0) return toast('Enter the balance (0 or more).');
     var id = ui.cardEdit === 'new' ? 'card-' + nid() : ui.cardEdit;
     var type = e.type || 'Credit card', isCard = type === 'Credit card';
-    var obj = {name:name, emoji:Array.from((e.emoji || '').trim()).slice(0, 3).join(''), type:type, balance:bal, limit:isCard ? pos(e.limit) : 0, orig:isCard ? 0 : pos(e.orig), apr:pos(e.apr), min:pos(e.min), due:e.due || '', updated:isoToday()};
+    var obj = {name:name, emoji:Array.from((e.emoji || '').trim()).slice(0, 3).join(''), type:type, balance:bal, limit:isCard ? pos(e.limit) : 0, orig:isCard ? 0 : pos(e.orig), apr:pos(e.apr), min:pos(e.min), due:e.due || '', priority:e.priority || '', updated:isoToday()};
     var isNew = ui.cardEdit === 'new';
     if (isNew) { obj.start = bal; obj.payments = []; obj.sched = []; }
     else { obj.start = r2(bal + paidSum(debtP(id) || {payments:[]})); }
@@ -839,24 +896,44 @@ button,input,select,.ccard,.sinfo,.tick,.tab,.chip{touch-action:manipulation}
     }
     Object.keys(plans).forEach(function(id){ addFrom(id, plans[id], 'plan'); });
     Object.keys(cards).forEach(function(id){ addFrom(id, debtP(id), 'debt'); });
+    var l30 = new Date(); l30.setDate(l30.getDate() + 30); var lim30r = isoOf(l30);
+    ['bill', 'sub'].forEach(function(kind){
+      var map = recurMap(kind);
+      Object.keys(map).forEach(function(id){
+        var it = map[id];
+        if (it.archived || !it.due) return;
+        var eff = effectiveDue(it); if (!eff) return;
+        var base = isoToLocal(eff);
+        for (var k = 0; k < 12; k++) {
+          var iso = isoOf(stepDate(base, it.freq, k));
+          if (k > 0 && iso > lim30r) break;
+          out.push({id:id, sid:null, kind:kind, fut:k > 0, p:Object.assign({}, it, {rkind:kind}), date:iso, amount:Number(it.amount) || 0, note:'', cat:it.category || ''});
+        }
+      });
+    });
     out.sort(function(a, b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : (a.p.name || '').localeCompare(b.p.name || '')); });
     return out;
   }
   function urow(x){
     var late = x.date < isoToday();
+    var isRec = x.kind === 'bill' || x.kind === 'sub';
     var tick = x.sid
       ? h('button',{class:'tick','data-act':'toggle','data-id':x.id,'data-sid':x.sid,'aria-label':'Mark paid: ' + x.p.name,text:'\u2661'})
       : h('span',{class:'tickgap'});
     var inf = h('button',{class:'sinfo','data-act':'uOpen','data-id':x.id,'data-kind':x.kind,'aria-label':'Open ' + x.p.name},
-      h('span',{class:'sl',text:emojiFor(x.p) + ' ' + x.p.name}),
+      h('span',{class:'sl',text:(isRec ? recurEmoji(x.kind, x.p) : emojiFor(x.p)) + ' ' + x.p.name}),
       h('span',{class:'sa',text:x.amount ? money(x.amount) : '\u2014'}),
-      h('span',{class:'ss',text:(late ? 'Overdue \u00b7 ' : '') + fmtDay(x.date) + (x.note ? ' \u00b7 ' + x.note : '')}));
+      h('span',{class:'ss',text:(late ? 'Overdue \u00b7 ' : '') + fmtDay(x.date) + (isRec ? ' \u00b7 ' + (x.kind === 'bill' ? 'Bill' : 'Subscription') : '') + (x.note ? ' \u00b7 ' + x.note : '')}));
     return h('div',{class:'srow' + (late ? ' late' : '')}, tick, inf);
   }
   function renderUpcoming(){
     var host = $('#upcomingTab'); host.textContent = '';
     if (!loaded) { host.appendChild(h('div',{class:'empty',text:'Loading\u2026'})); return; }
-    var items = collectUpcoming(), today = isoToday();
+    function kindOk(x){
+      var ks = Object.keys(ui.dueKinds); if (!ks.length) return true;
+      return !!ui.dueKinds[x.kind === 'bill' ? 'bills' : (x.kind === 'sub' ? 'subs' : 'debts')];
+    }
+    var items = collectUpcoming().filter(kindOk), today = isoToday();
     var d7 = new Date(); d7.setDate(d7.getDate() + 7); var lim7 = isoOf(d7);
     var d30 = new Date(); d30.setDate(d30.getDate() + 30); var lim30 = isoOf(d30);
     var g = {over:[], wk:[], mo:[], later:[]}, sums = {over:0, wk:0, mo:0};
@@ -871,27 +948,28 @@ button,input,select,.ccard,.sinfo,.tick,.tab,.chip{touch-action:manipulation}
     stat('Next 30 days', money(r2(sums.wk + sums.mo)));
     stat('Payments scheduled', String(items.length));
     host.appendChild(sum);
+    var kr = h('div',{class:'chips'});
+    [['debts','Debts'],['bills','Bills'],['subs','Subscriptions']].forEach(function(o){
+      kr.appendChild(h('button',{class:'chip','data-act':'dueKind','data-v':o[0],'aria-pressed':ui.dueKinds[o[0]] ? 'true' : 'false',text:o[1]}));
+    });
+    host.appendChild(kr);
     if (!items.length) {
       host.appendChild(h('div',{class:'empty',text:'Nothing scheduled yet. Add scheduled payments or a due date to a plan or debt and it will show up here \ud83d\udc97'}));
       return;
     }
-    function group(title, arr){
+    function group(key, title, arr){
       if (!arr.length) return;
-      var card = h('div',{class:'card'}, h('p',{class:'name',text:title + ' (' + arr.length + ')'}));
-      arr.forEach(function(x){ card.appendChild(urow(x)); });
-      host.appendChild(card);
+      var total = arr.reduce(function(sm, x){ return sm + (x.amount || 0); }, 0);
+      var det = h('details',{class:'sched ugroup'}, h('summary',{text:title + ' (' + arr.length + ')' + (total > 0 ? ' \u00b7 ' + money(r2(total)) : '')}));
+      arr.forEach(function(x){ det.appendChild(urow(x)); });
+      if (openUp[key]) det.setAttribute('open','');
+      det.addEventListener('toggle', function(){ openUp[key] = det.open; });
+      host.appendChild(h('div',{class:'card'}, det));
     }
-    group('Overdue', g.over);
-    group('Next 7 days', g.wk);
-    group('Next 30 days', g.mo);
-    if (g.later.length) {
-      var card = h('div',{class:'card'}, h('p',{class:'name',text:'Later (' + g.later.length + ')'}));
-      var det = h('details',{}, h('summary',{text:'Show later payments'}));
-      g.later.forEach(function(x){ det.appendChild(urow(x)); });
-      if (openLater) det.setAttribute('open','');
-      det.addEventListener('toggle', function(){ openLater = det.open; });
-      card.appendChild(det); host.appendChild(card);
-    }
+    group('over', 'Overdue', g.over);
+    group('wk', 'Next 7 days', g.wk);
+    group('mo', 'Next 30 days', g.mo);
+    group('later', 'Later', g.later);
   }
 
   /* ---------- progress chart ---------- */
@@ -1008,6 +1086,356 @@ button,input,select,.ccard,.sinfo,.tick,.tab,.chip{touch-action:manipulation}
     paintBackupNote(); toast('Backup saved \ud83d\udcbe');
   }
 
+  var SORTS = [['bal-asc','Balance: least to greatest'],['bal-desc','Balance: greatest to least'],['pay-asc','Payoff: soonest first'],['pay-desc','Payoff: latest first'],['due','Next due: soonest first'],['name','Name: A to Z']];
+  var CSORTS = [['bal-desc','Balance: greatest to least'],['bal-asc','Balance: least to greatest'],['priority','Priority: high to low'],['due','Due date: soonest first'],['type','Type'],['name','Name: A to Z']];
+  var SORT_PAIR = {'bal-asc':'bal-desc','bal-desc':'bal-asc','pay-asc':'pay-desc','pay-desc':'pay-asc'};
+  function sortLabel(opts, sel){
+    var f = opts.filter(function(o){ return o[0] === sel[0]; })[0] || opts[0];
+    return f[1];
+  }
+  function buildMulti(which, opts, sel, open){
+    var wrap = h('div',{class:'msel'});
+    wrap.appendChild(h('button',{type:'button',class:'msel-btn','data-ms':which,'data-mact':'toggle','aria-haspopup':'listbox','aria-expanded':open ? 'true' : 'false'},
+      h('span',{class:'mt',text:sortLabel(opts, sel)}), (sel.length > 1 ? h('span',{class:'plus',text:'+' + (sel.length - 1)}) : null), h('span',{class:'car',text:open ? '\u25B4' : '\u25BE'})));
+    if (open) {
+      var pop = h('div',{class:'msel-pop',role:'listbox','aria-multiselectable':'true'});
+      opts.forEach(function(o){
+        var i = sel.indexOf(o[0]), on = i >= 0;
+        pop.appendChild(h('button',{type:'button',class:'optrow' + (on ? ' on' : ''),role:'option','aria-selected':on ? 'true' : 'false','data-ms':which,'data-mact':'pick','data-v':o[0]},
+          h('span',{text:o[1]}), h('span',{class:'ck',text:on ? (sel.length > 1 ? String(i + 1) : '\u2665') : ''})));
+      });
+      pop.appendChild(h('p',{class:'note',text:'Pick more than one. The first one you pick sorts first, and the next ones break ties.'}));
+      pop.appendChild(h('button',{type:'button',class:'btn','data-ms':which,'data-mact':'done',text:'Done'}));
+      wrap.appendChild(pop);
+    }
+    return wrap;
+  }
+  function msClick(b){
+    var which = b.getAttribute('data-ms'), act = b.getAttribute('data-mact'), v = b.getAttribute('data-v');
+    var key = which === 'aff' ? 'sorts' : 'csorts', openKey = which === 'aff' ? 'sortOpen' : 'cSortOpen';
+    if (act === 'toggle') ui[openKey] = !ui[openKey];
+    else if (act === 'done') ui[openKey] = false;
+    else if (act === 'pick') {
+      var arr = ui[key].slice(), i = arr.indexOf(v);
+      if (i >= 0) { if (arr.length > 1) arr.splice(i, 1); }
+      else {
+        var pr = SORT_PAIR[v];
+        if (pr && arr.indexOf(pr) >= 0) arr.splice(arr.indexOf(pr), 1);
+        arr.push(v);
+      }
+      ui[key] = arr;
+    }
+    render();
+  }
+  function renderSort(){
+    var box = $('#sortSel'); box.textContent = '';
+    box.appendChild(buildMulti('aff', SORTS, ui.sorts, ui.sortOpen));
+  }
+
+  /* ---------- bills & subscriptions ---------- */
+  var RECUR = {
+    bill: {label:'Bill', plural:'Bills', prefix:'bill-', host:'#billsTab', icon:'🧾'},
+    sub: {label:'Subscription', plural:'Subscriptions', prefix:'sub-', host:'#subsTab', icon:'🔁'}
+  };
+  var DEFAULT_CATS = {
+    bill: [{name:'Housing',emoji:'🏠'},{name:'Utilities',emoji:'💡'},{name:'Phone & internet',emoji:'📱'},{name:'Insurance',emoji:'🛡️'},{name:'Transportation',emoji:'🚗'},{name:'Medical',emoji:'🏥'},{name:'Childcare',emoji:'🧸'},{name:'Other',emoji:'✨'}],
+    sub: [{name:'Streaming',emoji:'🎬'},{name:'Music',emoji:'🎵'},{name:'Apps & software',emoji:'📱'},{name:'Shopping',emoji:'🛍️'},{name:'Fitness',emoji:'🏋️'},{name:'News & reading',emoji:'📰'},{name:'Gaming',emoji:'🎮'},{name:'Cloud storage',emoji:'☁️'},{name:'Other',emoji:'✨'}]
+  };
+  var catsDoc = {};
+  var FREQ = [['monthly','Every month',1],['weekly','Every week',52 / 12],['biweekly','Every 2 weeks',26 / 12],['quarterly','Every 3 months',1 / 3],['yearly','Every year',1 / 12]];
+  var FREQ_SHORT = {monthly:'/mo', weekly:'/wk', biweekly:' every 2 wks', quarterly:'/qtr', yearly:'/yr'};
+  function recurMap(kind){ return kind === 'bill' ? bills : subs; }
+  function catList(kind){ var l = catsDoc && catsDoc[kind]; return (l && l.length) ? l : DEFAULT_CATS[kind]; }
+  function catEmoji(kind, name){ var c = catList(kind).filter(function(x){ return x.name === name; })[0]; return c ? c.emoji : ''; }
+  function recurEmoji(kind, it){ return catEmoji(kind, it.category || 'Other') || (it.category && it.category !== 'Other' ? '📌' : '') || it.emoji || RECUR[kind].icon; }
+  function saveCats(kind, list){
+    var next = {bill: catList('bill'), sub: catList('sub')}; next[kind] = list;
+    catsDoc = next;
+    enqueue('categories', function(){ return db.doc('data/users/' + uid + '/categories').set(next); });
+  }
+  function moveCategoryItems(kind, from, to){
+    var map = recurMap(kind);
+    Object.keys(map).forEach(function(id){ if ((map[id].category || 'Other') === from) save(id, {category:to}); });
+  }
+  function monthlyAmt(it){
+    var f = FREQ.filter(function(x){ return x[0] === it.freq; })[0] || FREQ[0];
+    return (Number(it.amount) || 0) * f[2];
+  }
+  function stepDate(d, freq, n){
+    if (freq === 'weekly') return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 7 * n);
+    if (freq === 'biweekly') return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 14 * n);
+    if (freq === 'quarterly') return addMonths(d, 3 * n);
+    if (freq === 'yearly') return addMonths(d, 12 * n);
+    return addMonths(d, n);
+  }
+  // bills and subscriptions repeat on their own: the due date always rolls forward to the next one
+  function effectiveDue(it){
+    var d = isoToLocal(it.due); if (!d) return null;
+    var today = isoToLocal(isoToday());
+    if (d < today) {
+      var n = 1, nd = stepDate(d, it.freq, n);
+      while (nd < today && n < 2000) { n++; nd = stepDate(d, it.freq, n); }
+      return isoOf(nd);
+    }
+    return it.due;
+  }
+  function recurDraft(it){ return {name:it.name || '', category:it.category || '', amount:it.amount, due:it.due || ''}; }
+  function recurTotals(){
+    var out = {bill:{mo:0, n:0}, sub:{mo:0, n:0}};
+    ['bill', 'sub'].forEach(function(kind){
+      var map = recurMap(kind);
+      Object.keys(map).forEach(function(id){
+        var it = map[id]; if (it.archived) return;
+        out[kind].mo += monthlyAmt(it); out[kind].n++;
+      });
+    });
+    return out;
+  }
+  function catEditor(kind){
+    var ce = ui.cgEdit, e = ui.cg || {}, isNew = ce.orig === 'new';
+    function inp(act, val, ph){
+      var i = h('input',{type:'text','data-act':act,'data-id':'cat',placeholder:ph || ''});
+      i.value = val || ''; return i;
+    }
+    var btns = h('div',{class:'row'},
+      h('button',{type:'button',class:'btn','data-act':'cgSave',text:isNew ? 'Add category' : 'Save'}),
+      h('button',{type:'button',class:'btn ghost','data-act':'cgCancel',text:'Cancel'}));
+    if (!isNew && ce.orig !== 'Other') btns.appendChild(h('button',{type:'button',class:'x','data-act':'cgDel',text:ui.cgdel ? 'Tap again to delete' : 'Delete'}));
+    return h('div',{class:'editor'},
+      labeled('Category name', inp('cg-name', e.name, 'e.g. Pets')),
+      labeled('Emoji for this category', inp('cg-emoji', e.emoji, 'Tap one below or type your own')), emojiPicks('cat'), btns);
+  }
+  function recurEditor(kind, id){
+    var e = ui.rd || {}, R = RECUR[kind];
+    function inp(act, type, val, ph, step){
+      var i = h('input',{type:type,'data-act':act,'data-id':id,placeholder:ph || '',step:step || null,min:type === 'number' ? '0' : null,inputmode:type === 'number' ? 'decimal' : null});
+      i.value = (val === undefined || val === null) ? '' : val; return i;
+    }
+    var list = catList(kind).slice();
+    if (e.category && !list.some(function(c){ return c.name === e.category; })) list.push({name:e.category, emoji:'📌'});
+    var chips = h('div',{class:'chips'});
+    list.forEach(function(c){
+      chips.appendChild(h('button',{type:'button',class:'chip','data-act':'rcat','data-id':id,'data-v':c.name,'aria-pressed':(e.category || '') === c.name ? 'true' : 'false',text:(c.emoji || '') + ' ' + c.name}));
+    });
+    chips.appendChild(h('button',{type:'button',class:'chip','data-act':'cgNew','data-from':'item','aria-pressed':'false',text:'＋ New category'}));
+    var catBox = (ui.cgEdit && ui.cgEdit.kind === kind && ui.cgEdit.from === 'item') ? catEditor(kind) : null;
+    var isNew = id === 'new', cur = isNew ? null : recurMap(kind)[id];
+    var btns = h('div',{class:'row'},
+      h('button',{class:'btn','data-act':'rSave',text:'Save'}),
+      h('button',{class:'btn ghost','data-act':'rCancel',text:'Cancel'}));
+    if (!isNew) {
+      btns.appendChild(h('button',{class:'btn ghost','data-act':'rPause','data-id':id,text:(cur && cur.archived) ? 'Resume' : 'Pause'}));
+      btns.appendChild(h('button',{class:'x','data-act':'rDel','data-id':id,text:ui.rdel ? 'Tap again to delete' : 'Delete'}));
+    }
+    return h('div',{class:'card'}, h('div',{class:'editor'},
+      labeled(R.label + ' name', inp('rf-name','text',e.name, kind === 'bill' ? 'e.g. Electric bill' : 'e.g. Netflix')),
+      h('div',{class:'grid2'}, labeled('Amount', inp('rf-amt','number',e.amount,'0.00','0.01')), labeled('Due date (repeats monthly)', inp('rf-due','date',e.due))),
+      h('div',{class:'fgroup',text:'Category'}), chips, catBox,
+      btns));
+  }
+  function saveRecur(kind){
+    if (!db) return toast('Saving isn’t available right now.');
+    var e = ui.rd || {}, R = RECUR[kind], name = (e.name || '').trim(), amt = r2(parseFloat(e.amount));
+    if (!name) return toast('Give it a name.');
+    if (!isFinite(amt) || amt < 0) return toast('Enter the amount.');
+    var isNew = ui.rEdit.id === 'new', id = isNew ? R.prefix + nid() : ui.rEdit.id;
+    var obj = {name:name, category:(e.category || '').trim() || 'Other', amount:amt, due:e.due || ''};
+    if (isNew) { obj.freq = 'monthly'; obj.archived = false; }
+    enqueue(id, function(){ return isNew ? planRef(id).set(obj) : planRef(id).update(obj); });
+    ui.rEdit = null; ui.rd = null; ui.rdel = false; ui.cgEdit = null; ui.cg = null; render();
+    toast('Saved ' + name + '.');
+  }
+  function recurRow(kind, x, paused){
+    var it = x.it, eff = it.due ? effectiveDue(it) : null;
+    var inf = h('button',{class:'sinfo','data-act':'rEdit','data-id':x.id,'aria-label':'Edit ' + it.name},
+      h('span',{class:'sl',text:recurEmoji(kind, it) + ' ' + it.name}),
+      h('span',{class:'sa',text:money(Number(it.amount) || 0) + (FREQ_SHORT[it.freq] || '/mo')}),
+      h('span',{class:'ss',text:paused ? 'Paused' : (eff ? 'Due ' + fmtDay(eff) : 'No due date')}));
+    return h('div',{class:'srow'}, inf);
+  }
+  function renderRecur(kind){
+    var R = RECUR[kind], host = $(R.host), map = recurMap(kind);
+    var ae = document.activeElement, key = null, selS = null, selE = null;
+    if (ae && ae.tagName === 'INPUT' && host.contains(ae) && ae.getAttribute('data-act')) {
+      key = ae.getAttribute('data-act') + '|' + (ae.getAttribute('data-id') || '');
+      try { selS = ae.selectionStart; selE = ae.selectionEnd; } catch(err){}
+    }
+    host.textContent = '';
+    if (!loaded) { host.appendChild(h('div',{class:'empty',text:'Loading…'})); return; }
+    var items = Object.keys(map).map(function(id){ return {id:id, it:map[id]}; });
+    var active = items.filter(function(x){ return !x.it.archived; }), paused = items.filter(function(x){ return x.it.archived; });
+    var mo = 0; active.forEach(function(x){ mo += monthlyAmt(x.it); });
+    var sum = h('div',{class:'summary'});
+    function stat(k, v){ sum.appendChild(h('div',{class:'stat'}, h('div',{class:'k',text:k}), h('div',{class:'v',text:v}))); }
+    stat('Per month', money(r2(mo)));
+    stat('Active', String(active.length));
+    host.appendChild(sum);
+    host.appendChild(h('div',{class:'toolbar'}, h('button',{class:'btn','data-act':'rAdd',text:'+ Add ' + R.label.toLowerCase()})));
+    var editing = ui.rEdit && ui.rEdit.kind === kind ? ui.rEdit.id : null;
+    if (editing === 'new') host.appendChild(recurEditor(kind, 'new'));
+    if (!items.length && editing !== 'new') {
+      host.appendChild(h('div',{class:'empty',text:'No ' + R.plural.toLowerCase() + ' yet. Tap + Add ' + R.label.toLowerCase() + ' to start 💗'}));
+    }
+    var byCat = {};
+    active.forEach(function(x){ var c = x.it.category || 'Other'; (byCat[c] = byCat[c] || []).push(x); });
+    var cats = Object.keys(byCat).map(function(c){
+      var t = 0; byCat[c].forEach(function(x){ t += monthlyAmt(x.it); });
+      return {c:c, t:t};
+    }).sort(function(a, b){ return b.t - a.t || a.c.localeCompare(b.c); });
+    cats.forEach(function(g){
+      var arr = byCat[g.c].sort(function(a, b){
+        var da = a.it.due ? effectiveDue(a.it) : '9999', db2 = b.it.due ? effectiveDue(b.it) : '9999';
+        return da < db2 ? -1 : (da > db2 ? 1 : (a.it.name || '').localeCompare(b.it.name || ''));
+      });
+      var k = kind + ':' + g.c;
+      var emo = catEmoji(kind, g.c) || (g.c === 'Other' ? '✨' : '📌');
+      var det = h('details',{class:'sched ugroup'}, h('summary',{text:emo + ' ' + g.c + ' (' + arr.length + ') · ' + money(r2(g.t)) + '/mo'}));
+      var hasEdit = arr.some(function(x){ return x.id === editing; });
+      if (ui.rOpen[k] !== false || hasEdit) det.setAttribute('open','');
+      det.addEventListener('toggle', function(){ ui.rOpen[k] = det.open; });
+      arr.forEach(function(x){
+        det.appendChild(recurRow(kind, x, false));
+        if (x.id === editing) det.appendChild(recurEditor(kind, x.id));
+      });
+      host.appendChild(h('div',{class:'card'}, det));
+    });
+    if (paused.length) {
+      var pk = kind + ':paused';
+      var pdet = h('details',{class:'sched ugroup'}, h('summary',{text:'Paused (' + paused.length + ')'}));
+      var pEdit = paused.some(function(x){ return x.id === editing; });
+      if (ui.rOpen[pk] === true || pEdit) pdet.setAttribute('open','');
+      pdet.addEventListener('toggle', function(){ ui.rOpen[pk] = pdet.open; });
+      paused.forEach(function(x){
+        pdet.appendChild(recurRow(kind, x, true));
+        if (x.id === editing) pdet.appendChild(recurEditor(kind, x.id));
+      });
+      host.appendChild(h('div',{class:'card'}, pdet));
+    }
+    // category manager
+    var list = catList(kind), ck = kind + ':cats';
+    var mEdit = ui.cgEdit && ui.cgEdit.kind === kind && ui.cgEdit.from === 'manager';
+    var cdet = h('details',{class:'sched ugroup'}, h('summary',{text:'🏷️ Categories (' + list.length + ')'}));
+    if (ui.rOpen[ck] === true || mEdit) cdet.setAttribute('open','');
+    cdet.addEventListener('toggle', function(){ ui.rOpen[ck] = cdet.open; });
+    list.forEach(function(c){
+      var n = items.filter(function(x){ return (x.it.category || 'Other') === c.name; }).length;
+      cdet.appendChild(h('div',{class:'srow'}, h('button',{class:'sinfo','data-act':'cgEdit','data-v':c.name,'aria-label':'Edit category ' + c.name},
+        h('span',{class:'sl',text:c.emoji + ' ' + c.name}),
+        h('span',{class:'sa',text:n + (n === 1 ? ' item' : ' items')}),
+        h('span',{class:'ss',text:'Tap to change the name or emoji'}))));
+      if (mEdit && ui.cgEdit.orig === c.name) cdet.appendChild(catEditor(kind));
+    });
+    if (mEdit && ui.cgEdit.orig === 'new') cdet.appendChild(catEditor(kind));
+    cdet.appendChild(h('div',{class:'toolbar'}, h('button',{class:'btn ghost','data-act':'cgNew','data-from':'manager',text:'＋ New category'})));
+    host.appendChild(h('div',{class:'card'}, cdet));
+    if (key) {
+      var kp = key.split('|');
+      var el = host.querySelector('input[data-act="' + kp[0] + '"][data-id="' + kp[1] + '"]');
+      if (el) { el.focus(); try { if (selS !== null) el.setSelectionRange(selS, selE); } catch(err){} }
+    }
+  }
+  function recurClick(kind, e){
+    var b = e.target.closest('button[data-act]'); if (!b) return;
+    var act = b.getAttribute('data-act'), id = b.getAttribute('data-id');
+    if (act === 'rAdd') {
+      ui.rEdit = {kind:kind, id:'new'}; ui.rdel = false; ui.cgEdit = null; ui.cg = null;
+      ui.rd = {name:'', category:'', amount:'', due:''}; render();
+    }
+    else if (act === 'rEdit') {
+      var it = recurMap(kind)[id]; if (!it) return;
+      ui.rEdit = {kind:kind, id:id}; ui.rd = recurDraft(it); ui.rdel = false; ui.cgEdit = null; ui.cg = null; render();
+    }
+    else if (act === 'rCancel') { ui.rEdit = null; ui.rd = null; ui.rdel = false; ui.cgEdit = null; ui.cg = null; render(); }
+    else if (act === 'rSave') saveRecur(kind);
+    else if (act === 'rPause') {
+      var cur = recurMap(kind)[id]; if (!cur) return;
+      save(id, {archived: !cur.archived}); ui.rEdit = null; ui.rd = null; ui.rdel = false; render();
+      toast(cur.archived ? 'Resumed.' : 'Paused. It won’t count toward your totals or show in Due soon.');
+    }
+    else if (act === 'rDel') {
+      if (!ui.rdel) { ui.rdel = true; render(); return toast('Tap Delete again to confirm.'); }
+      ui.rdel = false; ui.rEdit = null; ui.rd = null;
+      enqueue(id, function(){ return planRef(id).delete(); });
+      render(); toast('Deleted.');
+    }
+    else if (act === 'rcat') { if (ui.rd) ui.rd.category = b.getAttribute('data-v'); render(); }
+    else if (act === 'cgNew') {
+      ui.cgEdit = {kind:kind, orig:'new', from:b.getAttribute('data-from') || 'manager'}; ui.cg = {name:'', emoji:''}; ui.cgdel = false; render();
+    }
+    else if (act === 'cgEdit') {
+      var nm0 = b.getAttribute('data-v');
+      ui.cgEdit = {kind:kind, orig:nm0, from:'manager'}; ui.cg = {name:nm0, emoji:catEmoji(kind, nm0)}; ui.cgdel = false; render();
+    }
+    else if (act === 'cgCancel') { ui.cgEdit = null; ui.cg = null; ui.cgdel = false; render(); }
+    else if (act === 'cgSave') {
+      if (!db) return toast('Saving isn’t available right now.');
+      var ce = ui.cgEdit, g = ui.cg || {};
+      var nm = (g.name || '').trim(), em = Array.from((g.emoji || '').trim()).slice(0, 3).join('') || '📌';
+      if (ce.orig === 'Other') nm = 'Other';
+      if (!nm) return toast('Give the category a name.');
+      var list = catList(kind).map(function(c){ return {name:c.name, emoji:c.emoji}; });
+      if (list.some(function(c){ return c.name.toLowerCase() === nm.toLowerCase() && c.name !== ce.orig; })) return toast('You already have a category with that name.');
+      if (ce.orig === 'new') list.push({name:nm, emoji:em});
+      else {
+        list = list.map(function(c){ return c.name === ce.orig ? {name:nm, emoji:em} : c; });
+        if (nm !== ce.orig) { moveCategoryItems(kind, ce.orig, nm); if (ui.rd && ui.rd.category === ce.orig) ui.rd.category = nm; }
+      }
+      saveCats(kind, list);
+      if (ce.orig === 'new' && ce.from === 'item' && ui.rd) ui.rd.category = nm;
+      ui.cgEdit = null; ui.cg = null; ui.cgdel = false; render(); toast('Saved.');
+    }
+    else if (act === 'cgDel') {
+      if (!ui.cgdel) { ui.cgdel = true; render(); return toast('Tap Delete again to confirm.'); }
+      var orig = ui.cgEdit.orig;
+      var list2 = catList(kind).filter(function(c){ return c.name !== orig; }).map(function(c){ return {name:c.name, emoji:c.emoji}; });
+      if (!list2.some(function(c){ return c.name === 'Other'; })) list2.push({name:'Other', emoji:'✨'});
+      moveCategoryItems(kind, orig, 'Other'); saveCats(kind, list2);
+      ui.cgEdit = null; ui.cg = null; ui.cgdel = false; render(); toast('Deleted. Anything in it moved to Other.');
+    }
+    else if (act === 'emojiPick') { if (ui.cg && ui.cgEdit) ui.cg.emoji = b.getAttribute('data-emoji'); render(); }
+  }
+  function recurInput(e){
+    var el = e.target, act = el.getAttribute('data-act');
+    var map = {'rf-name':'name','rf-amt':'amount','rf-due':'due'};
+    if (map[act] && ui.rd) ui.rd[map[act]] = el.value;
+    else if (act === 'cg-name' && ui.cg) ui.cg.name = el.value;
+    else if (act === 'cg-emoji' && ui.cg) ui.cg.emoji = el.value;
+  }
+
+  /* ---------- home ---------- */
+  function renderHome(){
+    var host = $('#homeTab'); host.textContent = '';
+    if (!loaded) { host.appendChild(h('div',{class:'empty',text:'Loading…'})); return; }
+    var aff = 0, affMo = 0, affN = 0, oth = 0, othMo = 0, othN = 0;
+    Object.keys(plans).forEach(function(k){
+      var p = plans[k]; if (p.archived) return;
+      var r = remaining(p); aff += r;
+      if (r > 0.004) { affN++; affMo += Math.min(monthly(p), r); }
+    });
+    Object.keys(cards).forEach(function(k){
+      var c = debtP(k), r = remaining(c); oth += r;
+      if (r > 0.004) { othN++; if (monthly(c) > 0) othMo += Math.min(monthly(c), r); }
+    });
+    var rt = recurTotals();
+    function navCard(emoji, title, big, sub, tab){
+      return h('div',{class:'ccard',role:'button',tabindex:'0','data-act':'goTab','data-tab':tab,'aria-label':'Open ' + title},
+        h('div',{class:'top'},
+          h('div',{}, h('span',{class:'name',text:emoji + ' ' + title}), h('div',{class:'meta',text:sub})),
+          h('div',{class:'bal'}, h('b',{text:big}))));
+    }
+    host.appendChild(h('p',{class:'hsec',text:'Your debts'}));
+    host.appendChild(navCard('💗', 'Affirm', money(r2(aff)), affN + ' open plan' + (affN === 1 ? '' : 's') + ' · about ' + money(r2(affMo)) + ' a month', 'affirm'));
+    host.appendChild(navCard('💳', 'Other debts', money(r2(oth)), othN + ' open debt' + (othN === 1 ? '' : 's') + ' · about ' + money(r2(othMo)) + ' a month', 'cards'));
+    host.appendChild(h('p',{class:'hsec',text:'Bills & subscriptions'}));
+    host.appendChild(navCard('🧾', 'Bills', money(r2(rt.bill.mo)) + '/mo', rt.bill.n + ' bill' + (rt.bill.n === 1 ? '' : 's'), 'bills'));
+    host.appendChild(navCard('🔁', 'Subscriptions', money(r2(rt.sub.mo)) + '/mo', rt.sub.n + ' subscription' + (rt.sub.n === 1 ? '' : 's'), 'subs'));
+    var debtMo = affMo + othMo, tot = debtMo + rt.bill.mo + rt.sub.mo;
+    function mrow(label, v, cls){ return h('div',{class:'mrow' + (cls ? ' ' + cls : '')}, h('span',{text:label}), h('span',{text:money(r2(v))})); }
+    host.appendChild(h('p',{class:'hsec',text:'Every month'}));
+    host.appendChild(h('div',{class:'card'},
+      mrow('Debt payments', debtMo), mrow('Bills', rt.bill.mo), mrow('Subscriptions', rt.sub.mo), mrow('Total each month', tot, 'tot')));
+  }
+
   function render(){
     var g = $('#grand'), aff = 0, oth = 0;
     Object.keys(plans).forEach(function(k){ if (!plans[k].archived) aff += remaining(plans[k]); });
@@ -1020,10 +1448,17 @@ button,input,select,.ccard,.sinfo,.tick,.tab,.chip{touch-action:manipulation}
     $('#cardsTab').hidden = ui.tab !== 'cards';
     $('#upcomingTab').hidden = ui.tab !== 'upcoming';
     $('#progressTab').hidden = ui.tab !== 'progress';
+    $('#homeTab').hidden = ui.tab !== 'home';
+    $('#billsTab').hidden = ui.tab !== 'bills';
+    $('#subsTab').hidden = ui.tab !== 'subs';
+    $('#grand').hidden = ui.tab !== 'home';
     Array.prototype.forEach.call($('#tabs').children, function(t){ t.setAttribute('aria-pressed', t.getAttribute('data-tab') === ui.tab ? 'true' : 'false'); });
     if (ui.tab === 'cards') { renderCards(); return; }
     if (ui.tab === 'upcoming') { renderUpcoming(); return; }
     if (ui.tab === 'progress') { renderProgress(); return; }
+    if (ui.tab === 'home') { renderHome(); return; }
+    if (ui.tab === 'bills') { renderRecur('bill'); return; }
+    if (ui.tab === 'subs') { renderRecur('sub'); return; }
     var ae = document.activeElement, key = null, selS = null, selE = null;
     var host = $('#list');
     if (ae && ae.tagName === 'INPUT' && host.contains(ae) && ae.getAttribute('data-id')) {
@@ -1036,6 +1471,7 @@ button,input,select,.ccard,.sinfo,.tick,.tab,.chip{touch-action:manipulation}
     var detail = (ui.view && plans[ui.view]) ? ui.view : null;
     if (ui.view && !detail && loaded) ui.view = null;
     $('#browse').hidden = !!detail;
+    if (!detail) renderSort();
     if (!detail && loaded) {
       host.appendChild(h('div',{class:'toolbar'}, h('button',{class:'btn','data-act':'pAdd',text:'+ Add plan'})));
       if (ui.pedit === 'new') host.appendChild(planEditor('new'));
@@ -1165,18 +1601,26 @@ button,input,select,.ccard,.sinfo,.tick,.tab,.chip{touch-action:manipulation}
   }
 
   /* ---------- events ---------- */
-  $('#sort').addEventListener('change', function(e){ ui.sort = e.target.value; render(); });
+  $('#sortSel').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-mact]'); if (b) msClick(b);
+  });
+  document.addEventListener('click', function(e){
+    if (e.target.closest && e.target.closest('.msel')) return;
+    if (ui.sortOpen || ui.cSortOpen) { ui.sortOpen = false; ui.cSortOpen = false; render(); }
+  });
   $('#q').addEventListener('input', function(e){ ui.q = e.target.value; render(); });
   $('#chips').addEventListener('click', function(e){
     var b = e.target.closest('button[data-f]'); if (!b) return;
-    ui.filter = b.getAttribute('data-f');
-    Array.prototype.forEach.call($('#chips').children, function(c){ c.setAttribute('aria-pressed', c === b ? 'true' : 'false'); });
+    var f = b.getAttribute('data-f');
+    if (f === 'all') ui.filters = {};
+    else if (ui.filters[f]) delete ui.filters[f];
+    else ui.filters[f] = true;
+    var none = !Object.keys(ui.filters).length;
+    Array.prototype.forEach.call($('#chips').children, function(c){
+      var k = c.getAttribute('data-f');
+      c.setAttribute('aria-pressed', (k === 'all' ? none : !!ui.filters[k]) ? 'true' : 'false');
+    });
     render();
-  });
-  $('#nextDue').addEventListener('change', function(e){
-    if (!db) return toast('Saving isn’t available right now.');
-    var v = e.target.value || '';
-    enqueue('settings', function(){ return db.doc('data/users/' + uid + '/settings').set({nextDue: v}); });
   });
 
   function wireList(listEl){
@@ -1263,12 +1707,34 @@ button,input,select,.ccard,.sinfo,.tick,.tab,.chip{touch-action:manipulation}
   wireList($('#cardsTab'));
   wireList($('#upcomingTab'));
   $('#upcomingTab').addEventListener('click', function(e){
-    var b = e.target.closest('button[data-act="uOpen"]'); if (!b) return;
-    var id = b.getAttribute('data-id'), kind = b.getAttribute('data-kind');
+    var b = e.target.closest('button[data-act]'); if (!b) return;
+    var act = b.getAttribute('data-act'), id = b.getAttribute('data-id'), kind = b.getAttribute('data-kind');
+    if (act === 'dueKind') {
+      var v = b.getAttribute('data-v');
+      if (ui.dueKinds[v]) delete ui.dueKinds[v]; else ui.dueKinds[v] = true;
+      render(); return;
+    }
+    if (act !== 'uOpen') return;
     ui.edit = null; ui.ed = null; ui.auto = null; ui.pedit = null; ui.pd = null; ui.cardEdit = null; ui.cd = null;
-    if (kind === 'debt') { ui.tab = 'cards'; ui.dview = id; } else { ui.tab = 'affirm'; ui.view = id; }
+    if (kind === 'bill' || kind === 'sub') {
+      var it = recurMap(kind)[id]; if (!it) return;
+      ui.tab = kind === 'bill' ? 'bills' : 'subs';
+      ui.rEdit = {kind:kind, id:id}; ui.rd = recurDraft(it); ui.rdel = false;
+    }
+    else if (kind === 'debt') { ui.tab = 'cards'; ui.dview = id; } else { ui.tab = 'affirm'; ui.view = id; }
     render(); window.scrollTo(0, 0);
   });
+  $('#homeTab').addEventListener('click', function(e){
+    var b = e.target.closest('[data-act="goTab"]'); if (!b) return;
+    ui.tab = b.getAttribute('data-tab'); render(); window.scrollTo(0, 0);
+  });
+  $('#homeTab').addEventListener('keydown', function(e){
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.getAttribute('data-act') === 'goTab') { e.preventDefault(); e.target.click(); }
+  });
+  $('#billsTab').addEventListener('click', function(e){ recurClick('bill', e); });
+  $('#subsTab').addEventListener('click', function(e){ recurClick('sub', e); });
+  $('#billsTab').addEventListener('input', recurInput);
+  $('#subsTab').addEventListener('input', recurInput);
   $('#backupBtn').addEventListener('click', backupNow);
   $('#restoreBtn').addEventListener('click', function(){ $('#restoreFile').click(); });
   $('#restoreFile').addEventListener('change', function(e){
@@ -1367,18 +1833,20 @@ button,input,select,.ccard,.sinfo,.tick,.tab,.chip{touch-action:manipulation}
     uid = 'local'; db = makeLocalDb();
     var timer = null;
     db.collection('data/users/' + uid).onSnapshot(function(snap){
-      var np = {}, ns = {}, nc = {}, nh = [];
+      var np = {}, ns = {}, nc = {}, nh = [], nbl = {}, nsu = {}, ncat = {};
       snap.docs.forEach(function(d){
         var data = d.data() || {};
         if (d.id === 'settings') ns = data;
         else if (d.id.indexOf('plan-') === 0) np[d.id] = data;
         else if (d.id.indexOf('card-') === 0) nc[d.id] = data;
         else if (d.id === 'history') nh = data.points || [];
+        else if (d.id.indexOf('bill-') === 0) nbl[d.id] = data;
+        else if (d.id.indexOf('sub-') === 0) nsu[d.id] = data;
+        else if (d.id === 'categories') ncat = data;
       });
-      plans = np; settings = ns; cards = nc; hist = nh; loaded = true;
+      plans = np; settings = ns; cards = nc; hist = nh; bills = nbl; subs = nsu; catsDoc = ncat; loaded = true;
       if (!snap.metadata.fromCache) clearTimeout(timer);
       if (!cheerOn) startCheer();
-      var nd = $('#nextDue'); if (document.activeElement !== nd) nd.value = settings.nextDue || '';
       render();
       recordHistory();
     }, function(){
@@ -1391,14 +1859,17 @@ button,input,select,.ccard,.sinfo,.tick,.tab,.chip{touch-action:manipulation}
   });
   var cardsEl = $('#cardsTab');
   cardsEl.addEventListener('click', function(e){
+    var mb = e.target.closest('button[data-mact]'); if (mb) { msClick(mb); return; }
     var b = e.target.closest('button[data-act],[data-act="dOpen"]'); if (!b) return;
     var act = b.getAttribute('data-act'), id = b.getAttribute('data-id');
     if (act === 'dOpen') { ui.dview = id; ui.cardEdit = null; ui.cd = null; ui.confirmDel = null; ui.edit = null; ui.ed = null; ui.auto = null; ui.dscroll = window.scrollY; render(); window.scrollTo(0, 0); return; }
     if (act === 'dBack') { ui.dview = null; ui.cardEdit = null; ui.cd = null; ui.confirmDel = null; ui.edit = null; ui.ed = null; ui.auto = null; render(); window.scrollTo(0, ui.dscroll || 0); return; }
+    if (act === 'cf') { var cg = b.getAttribute('data-g'), cv = b.getAttribute('data-v'); if (ui.cf[cg][cv]) delete ui.cf[cg][cv]; else ui.cf[cg][cv] = true; render(); return; }
+    if (act === 'cfClear') { ui.cf = {types:{}, prios:{}}; render(); return; }
     if (act === 'cAdd') { ui.cardEdit = 'new'; ui.cd = {}; ui.confirmDel = null; render(); }
     else if (act === 'cEdit') {
       var c = cards[id]; if (!c) return;
-      ui.cardEdit = id; ui.cd = {name:c.name, emoji:c.emoji || '', type:c.type || 'Credit card', balance:c.balance, limit:c.limit || '', orig:c.orig || '', apr:c.apr || '', min:c.min || '', due:c.due || ''}; ui.confirmDel = null; render();
+      ui.cardEdit = id; ui.cd = {name:c.name, emoji:c.emoji || '', type:c.type || 'Credit card', balance:c.balance, limit:c.limit || '', orig:c.orig || '', apr:c.apr || '', min:c.min || '', due:c.due || '', priority:c.priority || ''}; ui.confirmDel = null; render();
     }
     else if (act === 'cCancel') { ui.cardEdit = null; ui.cd = null; ui.confirmDel = null; render(); }
     else if (act === 'cSave') saveCard();
@@ -1409,13 +1880,12 @@ button,input,select,.ccard,.sinfo,.tick,.tab,.chip{touch-action:manipulation}
     var el = e.target, act = el.getAttribute('data-act'), id = el.getAttribute('data-id');
     if (act === 'cp') { cardPay[id] = el.value; return; }
     if (!ui.cd) return;
-    var map = {'cf-name':'name','cf-emoji':'emoji','cf-type':'type','cf-bal':'balance','cf-limit':'limit','cf-orig':'orig','cf-apr':'apr','cf-min':'min','cf-due':'due'};
+    var map = {'cf-name':'name','cf-emoji':'emoji','cf-type':'type','cf-bal':'balance','cf-limit':'limit','cf-orig':'orig','cf-apr':'apr','cf-min':'min','cf-due':'due','cf-priority':'priority'};
     if (map[act]) ui.cd[map[act]] = el.value;
   });
   cardsEl.addEventListener('change', function(e){
     var ta = e.target.getAttribute('data-act');
-    if (ta === 'csort') { ui.cardSort = e.target.value; render(); }
-    else if (ta === 'cf-type' && ui.cd) { ui.cd.type = e.target.value; render(); }
+    if (ta === 'cf-type' && ui.cd) { ui.cd.type = e.target.value; render(); }
   });
   cardsEl.addEventListener('keydown', function(e){
     var kt = e.target.getAttribute('data-act');
