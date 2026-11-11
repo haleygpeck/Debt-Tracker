@@ -231,6 +231,31 @@ div.fld{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mu
 .chips{gap:10px}
 .kinds{margin:6px 0 16px}
 .kinds .chip{padding:9px 16px}
+:root{--kb:#4f8cf0;--ks:#a35be6}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--kb:#8db4ff;--ks:#c9a0ff}}
+:root[data-theme="dark"]{--kb:#8db4ff;--ks:#c9a0ff}
+.card.calcard{padding:20px 8px 12px}
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.cal-dow{text-align:center;font-size:11px;font-weight:600;color:var(--muted);padding:2px 0}
+.cal-day{min-height:58px;border-radius:12px;background:var(--surface);border:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:3px;padding:5px 1px 3px;font-size:13px;color:var(--text);min-width:0}
+.cal-day.empty{background:transparent;border:0}
+button.cal-day.has{cursor:pointer;background:var(--chip)}
+.cal-day.today{border:2px solid var(--accent)}
+button.cal-day.has.sel,.cal-day.sel{background:var(--accent);color:var(--accent-text);border-color:var(--accent)}
+.cal-day.sel .cal-amt{color:var(--accent-text)}
+.cal-num{font-weight:600;line-height:1}
+.cal-dots{display:flex;gap:2px;height:6px;align-items:center}
+.cal-dot{display:inline-block;width:6px;height:6px;border-radius:50%}
+.cal-dot.d{background:var(--accent)}
+.cal-dot.b{background:var(--kb)}
+.cal-dot.s{background:var(--ks)}
+.cal-day.sel .cal-dot{box-shadow:0 0 0 1.5px var(--accent-text)}
+.cal-amt{font-size:10px;line-height:1;color:var(--muted);font-weight:600}
+.cal-legend{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:10px}
+.cal-legend span{display:inline-flex;align-items:center;gap:4px}
+.dayhead{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.dayhead .name{margin:0}
+button.cal-day{cursor:pointer}
 </style>
 </head>
 <body>
@@ -1026,6 +1051,49 @@ div.fld{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mu
     });
     host.appendChild(kr);
 
+    // calendar: one cell per day, with dots for what is due and the day's total
+    var byDate = {};
+    items.forEach(function(x){
+      var e = byDate[x.date] = byDate[x.date] || {n:0, total:0, d:false, b:false, s:false};
+      e.n++; e.total += x.amount || 0;
+      if (x.kind === 'bill') e.b = true; else if (x.kind === 'sub') e.s = true; else e.d = true;
+    });
+    if (ui.dueDay && ui.dueDay.slice(0, 7) !== mk) ui.dueDay = null;
+    var calCard = h('div',{class:'card calcard'});
+    var grid = h('div',{class:'cal-grid'});
+    ['S','M','T','W','T','F','S'].forEach(function(w){ grid.appendChild(h('div',{class:'cal-dow',text:w})); });
+    var firstDow = new Date(y, m, 1).getDay(), daysIn = mEnd.getDate(), todayIso = isoToday();
+    for (var ci = 0; ci < firstDow; ci++) grid.appendChild(h('div',{class:'cal-day empty'}));
+    function compact(v){ return v >= 1000 ? '$' + (Math.round(v / 100) / 10) + 'k' : '$' + Math.round(v); }
+    for (var dd = 1; dd <= daysIn; dd++) {
+      var iso = mk + '-' + String(dd).padStart(2, '0'), ce = byDate[iso];
+      var ccls = 'cal-day' + (ce ? ' has' : '') + (iso === todayIso ? ' today' : '') + (ui.dueDay === iso ? ' sel' : '');
+      var dots = h('div',{class:'cal-dots'});
+      if (ce) {
+        if (ce.d) dots.appendChild(h('span',{class:'cal-dot d'}));
+        if (ce.b) dots.appendChild(h('span',{class:'cal-dot b'}));
+        if (ce.s) dots.appendChild(h('span',{class:'cal-dot s'}));
+      }
+      var cell = h('button',{type:'button',class:ccls,'data-act':'calDay','data-v':iso,'aria-label':fmtDay(iso) + (ce ? ': ' + ce.n + (ce.n === 1 ? ' payment, ' : ' payments, ') + money(r2(ce.total)) : ': nothing due')});
+      cell.appendChild(h('span',{class:'cal-num',text:String(dd)}));
+      cell.appendChild(dots);
+      cell.appendChild(h('span',{class:'cal-amt',text:ce ? compact(ce.total) : ''}));
+      grid.appendChild(cell);
+    }
+    calCard.appendChild(grid);
+    calCard.appendChild(h('div',{class:'cal-legend'},
+      h('span',{}, h('i',{class:'cal-dot d'}), h('span',{text:'Debts'})), h('span',{}, h('i',{class:'cal-dot b'}), h('span',{text:'Bills'})), h('span',{}, h('i',{class:'cal-dot s'}), h('span',{text:'Subscriptions'}))));
+    host.appendChild(calCard);
+    if (ui.dueDay) {
+      var dInfo = byDate[ui.dueDay];
+      var dayCard = h('div',{class:'card'}, h('div',{class:'dayhead'},
+        h('p',{class:'name',text:'📍 ' + fmtDay(ui.dueDay) + (dInfo ? ' · ' + money(r2(dInfo.total)) : '')}),
+        h('button',{class:'x','data-act':'calClear',text:'✕ Clear'})));
+      if (!dInfo) dayCard.appendChild(h('p',{class:'note',text:'Nothing due this day 💗'}));
+      items.filter(function(x){ return x.date === ui.dueDay; }).forEach(function(x){ dayCard.appendChild(urow(x)); });
+      host.appendChild(dayCard);
+    }
+
     if (earlier.length) {
       var od = h('details',{class:'sched ugroup'}, h('summary',{text:'Overdue from earlier (' + earlier.length + ') · ' + money(r2(earlyTotal))}));
       earlier.sort(function(a, b){ return a.date < b.date ? -1 : 1; }).forEach(function(x){ od.appendChild(urow(x)); });
@@ -1037,9 +1105,11 @@ div.fld{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mu
       if (!earlier.length) host.appendChild(h('div',{class:'empty',text:'Nothing due in ' + monthName + ' 💗'}));
       return;
     }
-    var card = h('div',{class:'card'}, h('p',{class:'name',text:'📅 ' + monthLabel + ' (' + items.length + ')'}));
-    items.forEach(function(x){ card.appendChild(urow(x)); });
-    host.appendChild(card);
+    var ldet = h('details',{class:'sched ugroup'}, h('summary',{text:'📅 ' + monthLabel + ' (' + items.length + ') · ' + money(r2(total))}));
+    items.forEach(function(x){ ldet.appendChild(urow(x)); });
+    if (ui.rOpen['due:list'] === true) ldet.setAttribute('open','');
+    ldet.addEventListener('toggle', function(){ ui.rOpen['due:list'] = ldet.open; });
+    host.appendChild(h('div',{class:'card'}, ldet));
   }
 
   /* ---------- progress chart ---------- */
@@ -2002,7 +2072,10 @@ div.fld{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mu
   $('#upcomingTab').addEventListener('click', function(e){
     var b = e.target.closest('button[data-act]'); if (!b) return;
     var act = b.getAttribute('data-act'), id = b.getAttribute('data-id'), kind = b.getAttribute('data-kind');
+    if (act === 'calClear') { ui.dueDay = null; render(); return; }
+    if (act === 'calDay') { var dv = b.getAttribute('data-v'); ui.dueDay = ui.dueDay === dv ? null : dv; render(); return; }
     if (act === 'mPrev' || act === 'mNext' || act === 'mToday') {
+      ui.dueDay = null;
       var cm2 = isoToday().slice(0, 7), mk2 = ui.dueMonth || cm2, pa = mk2.split('-'), pc = cm2.split('-');
       var nd = act === 'mToday' ? new Date(Number(pc[0]), Number(pc[1]) - 1, 1) : new Date(Number(pa[0]), Number(pa[1]) - 1 + (act === 'mNext' ? 1 : -1), 1);
       ui.dueMonth = nd.getFullYear() + '-' + String(nd.getMonth() + 1).padStart(2, '0');
