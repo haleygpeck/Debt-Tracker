@@ -182,6 +182,9 @@ div.fld{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mu
 .tab{flex:none}
 .mrow{display:flex;justify-content:space-between;gap:10px;padding:9px 2px;border-top:1px solid var(--line)}
 .mrow.tot{font-weight:700;font-size:18px;color:var(--accent)}
+.mrow.neg{color:var(--bad)}
+.card[role="button"]{cursor:pointer}
+.mrow input{width:96px;min-width:0;text-align:right;padding:6px 8px}
 .hsec{margin:18px 4px 8px;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em;font-weight:600}
 .tab{padding:10px 2px;font-size:13px;white-space:nowrap}
 .tickgap{width:38px;height:38px;flex-shrink:0}
@@ -196,32 +199,46 @@ div.fld{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mu
 .picks{display:flex;flex-wrap:wrap;gap:6px}
 .pick{border:0;background:var(--chip);border-radius:12px;font-size:20px;line-height:1;padding:7px 8px;cursor:pointer}
 @media (prefers-reduced-motion:reduce){#floaty{display:none}}
+.nav{position:relative;margin-bottom:12px}
+.navbtn{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:13px 18px;font-size:18px;text-align:left}
+.nb-burger{font-size:22px;line-height:1}
+.nb-label{flex:1;text-align:left}
+.nb-car{font-size:16px}
+.tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;position:absolute;top:calc(100% + 8px);left:0;right:0;z-index:40;background:var(--bg);border:2px solid var(--line);border-radius:26px;padding:12px;margin:0;box-shadow:0 14px 34px rgba(214,64,127,.25)}
+.tabs[hidden]{display:none}
+.tab{text-align:left;padding:13px 14px;font-size:15px}
+.pagehead{margin:0 0 12px;text-align:center;font-size:20px;font-weight:700;color:var(--accent)}
+.scrim{position:fixed;inset:0;background:rgba(60,10,35,.38);z-index:55}
+.scrim[hidden]{display:none}
+.drawer{position:fixed;top:0;left:0;bottom:0;width:min(300px,82vw);z-index:60;background:var(--bg);border-right:2px solid var(--line);box-shadow:8px 0 30px rgba(214,64,127,.25);padding:calc(18px + env(safe-area-inset-top,0px)) 14px calc(18px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:10px;overflow-y:auto;transform:translateX(-105%);visibility:hidden;transition:transform .25s ease,visibility 0s linear .25s}
+.drawer.open{transform:translateX(0);visibility:visible;transition:transform .25s ease,visibility 0s}
+.dr-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.dr-title{font-family:"Pacifico","Brush Script MT",cursive;font-size:26px;color:var(--accent)}
+.dr-x{width:40px;height:40px;border-radius:50%;border:0;background:var(--chip);font-size:18px;cursor:pointer;color:var(--text)}
+.drawer .tabs{display:flex;flex-direction:column;gap:8px;position:static;z-index:auto;background:transparent;border:0;border-radius:0;padding:0;box-shadow:none}
+.drawer .tab{width:100%;text-align:left;padding:14px 16px;font-size:16px}
+.dr-foot{margin-top:auto;padding-top:12px;border-top:1px solid var(--line)}
+.dr-foot .tab{width:100%;text-align:left;padding:14px 16px;font-size:16px;border:0;background:var(--chip);border-radius:999px;cursor:pointer;color:var(--text);font-weight:600;position:relative;overflow:hidden}
+@media (prefers-reduced-motion:reduce){.drawer,.drawer.open{transition:none}}
 </style>
 </head>
 <body>
 <div id="floaty" aria-hidden="true"></div>
 <div class="wrap" id="app">
   <button class="theme" id="themeBtn" aria-label="Switch between light and dark mode">🌙</button>
-  <button class="theme gear" id="gearBtn" aria-label="Back up and restore" aria-expanded="false">⚙️</button>
+  <button class="theme gear" id="navBtn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="drawer">☰</button>
   <h1>Debt Tracker ✨</h1>
   <p class="sub" id="status">Loading your plans…</p>
   <div class="panel tools" id="toolsPanel" hidden>
     <div class="row">
       <button class="btn ghost" id="backupBtn">💾 Back up my data</button>
       <button class="btn ghost" id="restoreBtn">📂 Restore from backup</button>
+      <button class="btn ghost" id="toolsClose">✕ Close</button>
     </div>
     <input type="file" id="restoreFile" accept="application/json,.json" hidden>
     <p class="note" id="backupNote"></p>
   </div>
-  <div class="tabs" id="tabs">
-    <button class="tab" data-tab="home" aria-pressed="true">🏠 Home</button>
-    <button class="tab" data-tab="affirm" aria-pressed="false">💗 Affirm</button>
-    <button class="tab" data-tab="cards" aria-pressed="false">💳 Other</button>
-    <button class="tab" data-tab="bills" aria-pressed="false">🧾 Bills</button>
-    <button class="tab" data-tab="subs" aria-pressed="false">🔁 Subs</button>
-    <button class="tab" data-tab="upcoming" aria-pressed="false">📅 Due soon</button>
-    <button class="tab" data-tab="progress" aria-pressed="false">📈 Progress</button>
-  </div>
+  <p class="pagehead" id="navLabel">🏠 Home</p>
   <div class="stat" id="grand"></div>
 
   <div id="affirmTab">
@@ -253,16 +270,32 @@ div.fld{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mu
   <div id="homeTab" hidden></div>
   <div id="billsTab" hidden></div>
   <div id="subsTab" hidden></div>
+  <div id="payTab" hidden></div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <canvas id="fx" aria-hidden="true"></canvas>
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" aria-hidden="true" aria-label="Menu">
+  <div class="dr-head"><span class="dr-title">Menu ✨</span><button class="dr-x" id="drawerClose" type="button" aria-label="Close menu">✕</button></div>
+  <nav class="tabs" id="tabs">
+    <button class="tab" data-tab="home" aria-pressed="true">🏠 Home</button>
+    <button class="tab" data-tab="affirm" aria-pressed="false">💗 Affirm plans</button>
+    <button class="tab" data-tab="cards" aria-pressed="false">💳 Other debts</button>
+    <button class="tab" data-tab="bills" aria-pressed="false">🧾 Bills</button>
+    <button class="tab" data-tab="subs" aria-pressed="false">🔁 Subscriptions</button>
+    <button class="tab" data-tab="pay" aria-pressed="false">💰 Paycheck</button>
+    <button class="tab" data-tab="upcoming" aria-pressed="false">📅 Due soon</button>
+    <button class="tab" data-tab="progress" aria-pressed="false">📈 Progress</button>
+  </nav>
+  <div class="dr-foot"><button class="tab" id="toolsBtn" type="button">⚙️ Backup &amp; restore</button></div>
+</aside>
 
 <script>
 (function(){
   var $ = function(s){return document.querySelector(s);};
   var money = function(n){return n.toLocaleString('en-US',{style:'currency',currency:'USD'});};
   var r2 = function(n){return Math.round(n*100)/100;};
-  var hist = [], openLater = false, openUp = {over:true, wk:true, mo:false, later:false}, plans = {}, bills = {}, subs = {}, settings = {}, cards = {}, cardPay = {}, ui = {sorts:['bal-asc'], csorts:['bal-desc'], sortOpen:false, cSortOpen:false, filters:{}, cf:{types:{}, prios:{}}, cfOpen:false, q:'', edit:null, ed:null, auto:null, tab:'home', rEdit:null, rd:null, rdel:false, cgEdit:null, cg:null, cgdel:false, rOpen:{}, dueKinds:{}, cardEdit:null, cd:null, confirmDel:null};
+  var hist = [], openLater = false, openUp = {over:true, wk:true, mo:false, later:false}, plans = {}, bills = {}, subs = {}, payLog = {}, settings = {}, cards = {}, cardPay = {}, ui = {sorts:['bal-asc'], csorts:['bal-desc'], sortOpen:false, cSortOpen:false, filters:{}, cf:{types:{}, prios:{}}, cfOpen:false, q:'', edit:null, ed:null, auto:null, tab:'home', incEdit:false, incNew:false, inc:null, incdel:false, lgEdit:null, lg:null, lgdel:false, rEdit:null, rd:null, rdel:false, cgEdit:null, cg:null, cgdel:false, rOpen:{}, dueKinds:{}, cardEdit:null, cd:null, confirmDel:null};
   var drafts = {}, openHist = {}, openS = {}, db = null, uid = null, loaded = false, queues = {}, toastT = null;
 
   function toast(msg){
@@ -1402,6 +1435,211 @@ div.fld{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mu
     else if (act === 'cg-emoji' && ui.cg) ui.cg.emoji = el.value;
   }
 
+  /* ---------- income ---------- */
+  var incomeDoc = {};
+  var INC_FREQ = [['weekly','Every week',52 / 12],['biweekly','Every 2 weeks',26 / 12],['semimonthly','Twice a month',2],['monthly','Once a month',1]];
+  var INC_SHORT = {weekly:'every week', biweekly:'every 2 weeks', semimonthly:'twice a month', monthly:'a month'};
+  function incomeMonthly(inc){
+    if (!inc || !(Number(inc.amount) > 0)) return 0;
+    var f = INC_FREQ.filter(function(x){ return x[0] === inc.freq; })[0] || INC_FREQ[1];
+    return Number(inc.amount) * f[2];
+  }
+  function extraNow(inc){
+    var x = inc && inc.extra;
+    return (x && x.month === isoToday().slice(0, 7) && Number(x.amount) > 0) ? Number(x.amount) : 0;
+  }
+  var HRS_DEFAULT = {weekly:40, biweekly:80, semimonthly:86.67, monthly:173.33};
+  function r4(n){ return Math.round(n * 10000) / 10000; }
+  // estimates overtime take-home from hours: hours x overtime rate, times the share of your regular check you actually take home
+  function otModel(inc){
+    if (!inc || !(Number(inc.amount) > 0) || !(Number(inc.rate) > 0)) return null;
+    var hrs = Number(inc.hours) > 0 ? Number(inc.hours) : (HRS_DEFAULT[inc.freq] || 80);
+    var otRate = Number(inc.otRate) > 0 ? Number(inc.otRate) : Number(inc.rate) * 1.5;
+    var ratio = Math.min(1, Number(inc.amount) / (Number(inc.rate) * hrs));
+    var oh = (inc.ot && inc.ot.month === isoToday().slice(0, 7) && Number(inc.ot.hours) > 0) ? Number(inc.ot.hours) : 0;
+    return {hrs:hrs, otRate:otRate, ratio:ratio, otHours:oh, gross:oh * otRate, net:oh * otRate * ratio};
+  }
+  function extraTotal(inc){ var m = otModel(inc); return extraNow(inc) + (m ? m.net : 0); }
+  function incObj(e){
+    var amt = r2(parseFloat(e.amount)); if (!(amt > 0)) return null;
+    var o = {amount:amt, freq:e.freq || 'biweekly'};
+    var cm = isoToday().slice(0, 7);
+    var ex = r2(parseFloat(e.extra));
+    if (ex > 0) o.extra = {month:cm, amount:ex};
+    var rt = r4(parseFloat(e.rate)); if (rt > 0) o.rate = rt;
+    var hr = r2(parseFloat(e.hours)); if (hr > 0) o.hours = hr;
+    var orr = r4(parseFloat(e.otRate)); if (orr > 0) o.otRate = orr;
+    var oh = r2(parseFloat(e.othours)); if (oh > 0) o.ot = {month:cm, hours:oh};
+    return o;
+  }
+  function paylogEditor(){
+    var e = ui.lg || {}, isNew = ui.lgEdit === 'new';
+    var d = h('input',{type:'date','data-act':'lg-date','aria-label':'Date received'}); d.value = e.date || '';
+    var a = h('input',{type:'number',step:'0.01',min:'0',inputmode:'decimal','data-act':'lg-amt',placeholder:'0.00','aria-label':'Take-home amount'});
+    a.value = (e.amount === undefined || e.amount === null) ? '' : e.amount;
+    var n = h('input',{type:'text','data-act':'lg-note',placeholder:'e.g. included overtime','aria-label':'Note'}); n.value = e.note || '';
+    var btns = h('div',{class:'row'},
+      h('button',{class:'btn','data-act':'lgSave',text:'Save'}),
+      h('button',{class:'btn ghost','data-act':'lgCancel',text:'Cancel'}));
+    if (!isNew) btns.appendChild(h('button',{class:'x','data-act':'lgDel',text:ui.lgdel ? 'Tap again to delete' : 'Delete'}));
+    return h('div',{class:'editor'}, h('div',{class:'grid2'}, labeled('Date received', d), labeled('Take-home amount', a)), labeled('Note (optional)', n), btns);
+  }
+  function renderPayLog(host){
+    host.appendChild(h('p',{class:'hsec',text:'Paychecks received'}));
+    var items = Object.keys(payLog).map(function(id){ return {id:id, p:payLog[id]}; }).sort(function(a, b){ return a.p.date < b.p.date ? 1 : (a.p.date > b.p.date ? -1 : 0); });
+    var card = h('div',{class:'card'});
+    card.appendChild(h('div',{class:'toolbar'}, h('button',{class:'btn','data-act':'lgAdd',text:'+ Log a paycheck'})));
+    if (ui.lgEdit === 'new') card.appendChild(paylogEditor());
+    if (!items.length && ui.lgEdit !== 'new') card.appendChild(h('p',{class:'note',text:'Nothing logged yet. Tap + Log a paycheck and pick the date you received it.'}));
+    var byM = {};
+    items.forEach(function(x){ var m = (x.p.date || '').slice(0, 7) || 'none'; (byM[m] = byM[m] || []).push(x); });
+    var cm = isoToday().slice(0, 7);
+    Object.keys(byM).sort().reverse().forEach(function(m){
+      var arr = byM[m], tot = 0; arr.forEach(function(x){ tot += Number(x.p.amount) || 0; });
+      var parts = m.split('-'), label = parts.length === 2 ? new Date(Number(parts[0]), Number(parts[1]) - 1, 1).toLocaleDateString('en-US',{month:'long',year:'numeric'}) : 'No date';
+      var k = 'pay:' + m, hasEdit = arr.some(function(x){ return x.id === ui.lgEdit; });
+      var det = h('details',{class:'sched ugroup'}, h('summary',{text:label + ' (' + arr.length + ') · ' + money(r2(tot)) + ' received'}));
+      var open = ui.rOpen[k] !== undefined ? ui.rOpen[k] : (m === cm);
+      if (open || hasEdit) det.setAttribute('open','');
+      det.addEventListener('toggle', function(){ ui.rOpen[k] = det.open; });
+      arr.forEach(function(x){
+        det.appendChild(h('div',{class:'srow'}, h('button',{class:'sinfo','data-act':'lgEdit','data-id':x.id,'aria-label':'Edit paycheck'},
+          h('span',{class:'sl',text:'💰 ' + fmtDay(x.p.date)}),
+          h('span',{class:'sa',text:money(Number(x.p.amount) || 0)}),
+          h('span',{class:'ss',text:x.p.note || 'Tap to edit'}))));
+        if (x.id === ui.lgEdit) det.appendChild(paylogEditor());
+      });
+      card.appendChild(det);
+    });
+    host.appendChild(card);
+  }
+  function saveLog(){
+    if (!db) return toast('Saving isn’t available right now.');
+    var e = ui.lg || {}, amt = r2(parseFloat(e.amount));
+    if (!isoToLocal(e.date)) return toast('Pick the date you received it.');
+    if (!(amt > 0)) return toast('Enter the take-home amount.');
+    var isNew = ui.lgEdit === 'new', id = isNew ? 'pay-' + nid() : ui.lgEdit;
+    var obj = {date:e.date, amount:amt, note:(e.note || '').trim()};
+    enqueue(id, function(){ return isNew ? planRef(id).set(obj) : planRef(id).update(obj); });
+    ui.lgEdit = null; ui.lg = null; ui.lgdel = false; render();
+    toast('Logged your paycheck 💰');
+  }
+  function outgoTotals(){
+    var affMo = 0, othMo = 0;
+    Object.keys(plans).forEach(function(k){
+      var p = plans[k]; if (p.archived) return;
+      var r = remaining(p); if (r > 0.004) affMo += Math.min(monthly(p), r);
+    });
+    Object.keys(cards).forEach(function(k){
+      var c = debtP(k), r = remaining(c); if (r > 0.004 && monthly(c) > 0) othMo += Math.min(monthly(c), r);
+    });
+    var rt = recurTotals();
+    return {debt:affMo + othMo, bill:rt.bill.mo, sub:rt.sub.mo, tot:affMo + othMo + rt.bill.mo + rt.sub.mo};
+  }
+  function renderPay(){
+    var host = $('#payTab');
+    var ae = document.activeElement, fkey = null, fS = null, fE = null;
+    if (ae && ae.tagName === 'INPUT' && host.contains(ae) && ae.getAttribute('data-act')) {
+      fkey = ae.getAttribute('data-act');
+      try { fS = ae.selectionStart; fE = ae.selectionEnd; } catch(err){}
+    }
+    host.textContent = '';
+    if (!loaded) { host.appendChild(h('div',{class:'empty',text:'Loading…'})); return; }
+    var inc = incomeDoc || {}, incMo = incomeMonthly(inc), has = incMo > 0;
+    if (!has && !ui.incEdit) { ui.incEdit = true; ui.incNew = true; ui.inc = {amount:'', freq:'biweekly', extra:'', rate:'', hours:'', otRate:'', othours:'', date:''}; }
+    if (ui.incEdit) {
+      if (!has) host.appendChild(h('p',{class:'note',text:'Enter your take-home pay (after taxes) and the app will show how much you have left to spend each month 💗'}));
+      host.appendChild(incomeEditor());
+    } else {
+      var exN = extraTotal(inc), om = otModel(inc), inTot = incMo + exN;
+      var ot = outgoTotals(), left = inTot - ot.tot, pctAll = ot.tot / inTot * 100, pctDebt = ot.debt / inTot * 100;
+      var bar = h('i'); bar.style.width = Math.min(100, Math.max(0, pctAll)).toFixed(1) + '%';
+      function mrow(label, v, cls){ return h('div',{class:'mrow' + (cls ? ' ' + cls : '')}, h('span',{text:label}), h('span',{text:v})); }
+      var otRow = null, otNote = null;
+      if (om) {
+        var oi = h('input',{type:'number',step:'any',min:'0',inputmode:'decimal','data-act':'ot-hours',placeholder:'0','aria-label':'Overtime hours this month'});
+        oi.value = om.otHours > 0 ? om.otHours : '';
+        otRow = h('div',{class:'mrow'}, h('span',{text:'Overtime hours this month'}), oi);
+        otNote = h('p',{class:'note',text:'Overtime pays ' + money(om.otRate) + ' an hour. About ' + Math.round(om.ratio * 100) + '% of it ends up in your pocket, based on your regular check, so this is an estimate.'});
+      }
+      host.appendChild(h('div',{class:'card'},
+        h('p',{class:'name',text:'💰 Take-home pay'}),
+        h('div',{class:'meta',text:money(Number(inc.amount)) + ' ' + (INC_SHORT[inc.freq] || INC_SHORT.biweekly)}),
+        mrow('Each month', money(r2(incMo))),
+        otRow,
+        (om && om.otHours > 0 ? mrow('Overtime (' + om.otHours + ' hrs)', '+' + money(r2(om.net))) : null),
+        (extraNow(inc) > 0 ? mrow('Other extra this month', '+' + money(r2(extraNow(inc)))) : null),
+        mrow('Debt payments', '−' + money(r2(ot.debt))),
+        mrow('Bills', '−' + money(r2(ot.bill))),
+        mrow('Subscriptions', '−' + money(r2(ot.sub))),
+        mrow('Left to spend', (left < -0.004 ? '−' : '') + money(Math.abs(r2(left))), 'tot' + (left < 0 ? ' neg' : '')),
+        h('div',{class:'bar'}, bar),
+        mrow('Debt payments take', Math.round(pctDebt) + '% of your pay'),
+        mrow('Everything together takes', Math.round(pctAll) + '% of your pay'),
+        otNote,
+        h('div',{class:'toolbar'}, h('button',{class:'btn ghost','data-act':'incEdit',text:'Edit regular pay'}))));
+    }
+    if (has && !ui.incEdit) renderPayLog(host);
+    if (fkey) {
+      var fel = host.querySelector('input[data-act="' + fkey + '"]');
+      if (fel) { fel.focus(); try { if (fS !== null) fel.setSelectionRange(fS, fE); } catch(err){} }
+    }
+  }
+  function incomeEditor(){
+    var e = ui.inc || {}, has = Number((incomeDoc || {}).amount) > 0;
+    var amt = h('input',{type:'number',step:'0.01',min:'0',inputmode:'decimal','data-act':'inc-amt',placeholder:'0.00'});
+    amt.value = (e.amount === undefined || e.amount === null) ? '' : e.amount;
+    var ex = h('input',{type:'number',step:'0.01',min:'0',inputmode:'decimal','data-act':'inc-extra',placeholder:'0.00'});
+    ex.value = (e.extra === undefined || e.extra === null) ? '' : e.extra;
+    function num(act, val, ph){
+      var i = h('input',{type:'number',step:'any',min:'0',inputmode:'decimal','data-act':act,placeholder:ph || ''});
+      i.value = (val === undefined || val === null) ? '' : val; return i;
+    }
+    var defHrs = HRS_DEFAULT[e.freq || 'biweekly'] || 80;
+    var rateIn = num('inc-rate', e.rate, 'e.g. 26.9231');
+    var hrsIn = num('inc-hours', e.hours, 'usually ' + defHrs);
+    var otRateIn = num('inc-otrate', e.otRate, (parseFloat(e.rate) > 0 ? String(r4(parseFloat(e.rate) * 1.5)) : '1.5 times regular'));
+    var otHoursIn = num('inc-othours', e.othours, '0');
+    var dateIn = null;
+    if (!has || ui.incNew) { dateIn = h('input',{type:'date','data-act':'inc-date','aria-label':'Date received'}); dateIn.value = e.date || ''; }
+    var fs = h('select',{'data-act':'inc-freq','aria-label':'How often you get paid'});
+    INC_FREQ.forEach(function(f){ fs.appendChild(h('option',{value:f[0],text:f[1]})); });
+    fs.value = e.freq || 'biweekly';
+    var btns = h('div',{class:'row'},
+      h('button',{class:'btn','data-act':'incSave',text:'Save'}),
+      h('button',{class:'btn ghost','data-act':'incCancel',text:'Cancel'}));
+    if (has) btns.appendChild(h('button',{class:'x','data-act':'incClear',text:ui.incdel ? 'Tap again to remove' : 'Remove'}));
+    return h('div',{class:'card'}, h('div',{class:'editor'},
+      labeled('Regular take-home pay per paycheck (after taxes)', amt),
+      labeled('How often you get paid', fs),
+      (dateIn ? labeled('Date you received this paycheck (optional)', dateIn) : null),
+      h('div',{class:'fgroup',text:'For overtime (optional)'}),
+      h('div',{class:'grid2'}, labeled('Regular hourly pay', rateIn), labeled('Overtime hourly pay', otRateIn)),
+      h('div',{class:'grid2'}, labeled('Regular hours per paycheck', hrsIn), labeled('Overtime hours this month', otHoursIn)),
+      h('p',{class:'note',text:'Leave the overtime pay blank if it is 1.5 times your regular pay. The app figures out how much of the overtime you take home, based on your regular check. Overtime hours count for this month only and clear next month.'}),
+      labeled('Other extra take-home this month, like a bonus (optional)', ex),
+      btns));
+  }
+  function saveIncome(){
+    if (!db) return toast('Saving isn’t available right now.');
+    var obj = incObj(ui.inc || {});
+    if (!obj) return toast('Enter your take-home pay.');
+    if (ui.inc && ui.inc.date && isoToLocal(ui.inc.date)) {
+      var lid0 = 'pay-' + nid(), lobj0 = {date:ui.inc.date, amount:obj.amount, note:''};
+      enqueue(lid0, function(){ return planRef(lid0).set(lobj0); });
+    }
+    enqueue('income', function(){ return db.doc('data/users/' + uid + '/income').set(obj); });
+    incomeDoc = obj; ui.incEdit = false; ui.incNew = false; ui.inc = null; ui.incdel = false; render();
+    toast('Saved your paycheck 💰');
+  }
+  function clearIncome(){
+    if (!db) return;
+    if (!ui.incdel) { ui.incdel = true; render(); return toast('Tap Remove again to confirm.'); }
+    enqueue('income', function(){ return db.doc('data/users/' + uid + '/income').delete(); });
+    incomeDoc = {}; ui.incEdit = false; ui.incNew = false; ui.inc = null; ui.incdel = false; render();
+    toast('Paycheck removed.');
+  }
+
   /* ---------- home ---------- */
   function renderHome(){
     var host = $('#homeTab'); host.textContent = '';
@@ -1423,6 +1661,19 @@ div.fld{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mu
           h('div',{}, h('span',{class:'name',text:emoji + ' ' + title}), h('div',{class:'meta',text:sub})),
           h('div',{class:'bal'}, h('b',{text:big}))));
     }
+    var ot0 = outgoTotals(), incMo0 = incomeMonthly(incomeDoc);
+    if (incMo0 > 0) {
+      var ex0 = extraTotal(incomeDoc), left0 = incMo0 + ex0 - ot0.tot;
+      var rowT = function(label, text, cls){ return h('div',{class:'mrow' + (cls ? ' ' + cls : '')}, h('span',{text:label}), h('span',{text:text})); };
+      host.appendChild(h('p',{class:'hsec',text:'Left to spend'}));
+      host.appendChild(h('div',{class:'card',role:'button',tabindex:'0','data-act':'goTab','data-tab':'pay','aria-label':'Open your paycheck'},
+        rowT('Paycheck each month', money(r2(incMo0))),
+        (ex0 > 0 ? rowT('Overtime this month', '+' + money(r2(ex0))) : null),
+        rowT('Debt payments', '−' + money(r2(ot0.debt))),
+        rowT('Bills', '−' + money(r2(ot0.bill))),
+        rowT('Subscriptions', '−' + money(r2(ot0.sub))),
+        rowT('Left to spend each month', (left0 < -0.004 ? '−' : '') + money(Math.abs(r2(left0))), 'tot' + (left0 < 0 ? ' neg' : ''))));
+    }
     host.appendChild(h('p',{class:'hsec',text:'Your debts'}));
     host.appendChild(navCard('💗', 'Affirm', money(r2(aff)), affN + ' open plan' + (affN === 1 ? '' : 's') + ' · about ' + money(r2(affMo)) + ' a month', 'affirm'));
     host.appendChild(navCard('💳', 'Other debts', money(r2(oth)), othN + ' open debt' + (othN === 1 ? '' : 's') + ' · about ' + money(r2(othMo)) + ' a month', 'cards'));
@@ -1431,9 +1682,11 @@ div.fld{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mu
     host.appendChild(navCard('🔁', 'Subscriptions', money(r2(rt.sub.mo)) + '/mo', rt.sub.n + ' subscription' + (rt.sub.n === 1 ? '' : 's'), 'subs'));
     var debtMo = affMo + othMo, tot = debtMo + rt.bill.mo + rt.sub.mo;
     function mrow(label, v, cls){ return h('div',{class:'mrow' + (cls ? ' ' + cls : '')}, h('span',{text:label}), h('span',{text:money(r2(v))})); }
-    host.appendChild(h('p',{class:'hsec',text:'Every month'}));
-    host.appendChild(h('div',{class:'card'},
-      mrow('Debt payments', debtMo), mrow('Bills', rt.bill.mo), mrow('Subscriptions', rt.sub.mo), mrow('Total each month', tot, 'tot')));
+    if (!(incMo0 > 0)) {
+      host.appendChild(h('p',{class:'hsec',text:'Every month'}));
+      host.appendChild(h('div',{class:'card'},
+        mrow('Debt payments', debtMo), mrow('Bills', rt.bill.mo), mrow('Subscriptions', rt.sub.mo), mrow('Total each month', tot, 'tot')));
+    }
   }
 
   function render(){
@@ -1451,14 +1704,17 @@ div.fld{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mu
     $('#homeTab').hidden = ui.tab !== 'home';
     $('#billsTab').hidden = ui.tab !== 'bills';
     $('#subsTab').hidden = ui.tab !== 'subs';
+    $('#payTab').hidden = ui.tab !== 'pay';
     $('#grand').hidden = ui.tab !== 'home';
     Array.prototype.forEach.call($('#tabs').children, function(t){ t.setAttribute('aria-pressed', t.getAttribute('data-tab') === ui.tab ? 'true' : 'false'); });
+    var curTab = $('#tabs .tab[aria-pressed="true"]'); $('#navLabel').textContent = curTab ? curTab.textContent.trim() : '';
     if (ui.tab === 'cards') { renderCards(); return; }
     if (ui.tab === 'upcoming') { renderUpcoming(); return; }
     if (ui.tab === 'progress') { renderProgress(); return; }
     if (ui.tab === 'home') { renderHome(); return; }
     if (ui.tab === 'bills') { renderRecur('bill'); return; }
     if (ui.tab === 'subs') { renderRecur('sub'); return; }
+    if (ui.tab === 'pay') { renderPay(); return; }
     var ae = document.activeElement, key = null, selS = null, selE = null;
     var host = $('#list');
     if (ae && ae.tagName === 'INPUT' && host.contains(ae) && ae.getAttribute('data-id')) {
@@ -1731,6 +1987,60 @@ div.fld{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mu
   $('#homeTab').addEventListener('keydown', function(e){
     if ((e.key === 'Enter' || e.key === ' ') && e.target.getAttribute('data-act') === 'goTab') { e.preventDefault(); e.target.click(); }
   });
+  $('#payTab').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-act]'); if (!b) return;
+    var act = b.getAttribute('data-act'), lid = b.getAttribute('data-id');
+    if (act === 'lgAdd') { ui.lgEdit = 'new'; ui.lg = {date:isoToday(), amount:'', note:''}; ui.lgdel = false; render(); return; }
+    if (act === 'lgEdit') {
+      var pl = payLog[lid]; if (!pl) return;
+      ui.lgEdit = lid; ui.lg = {date:pl.date || '', amount:pl.amount, note:pl.note || ''}; ui.lgdel = false; render(); return;
+    }
+    if (act === 'lgCancel') { ui.lgEdit = null; ui.lg = null; ui.lgdel = false; render(); return; }
+    if (act === 'lgSave') { saveLog(); return; }
+    if (act === 'lgDel') {
+      if (!ui.lgdel) { ui.lgdel = true; render(); return toast('Tap Delete again to confirm.'); }
+      var did = ui.lgEdit; ui.lgEdit = null; ui.lg = null; ui.lgdel = false;
+      enqueue(did, function(){ return planRef(did).delete(); });
+      render(); toast('Deleted.'); return;
+    }
+    if (act === 'incEdit') {
+      var cur = incomeDoc || {};
+      ui.lgEdit = null; ui.lg = null; ui.incEdit = true; ui.incdel = false; ui.inc = {amount:cur.amount || '', freq:cur.freq || 'biweekly', extra:extraNow(cur) || '', rate:cur.rate || '', hours:cur.hours || '', otRate:cur.otRate || '', othours:(otModel(cur) && otModel(cur).otHours) || ''}; render();
+    }
+    else if (act === 'incCancel') { ui.incEdit = false; ui.incNew = false; ui.inc = null; ui.incdel = false; render(); }
+    else if (act === 'incSave') saveIncome();
+    else if (act === 'incClear') clearIncome();
+  });
+  $('#payTab').addEventListener('input', function(e){
+    var act = e.target.getAttribute('data-act');
+    if (act === 'inc-amt' && ui.inc) ui.inc.amount = e.target.value;
+    else if (act === 'inc-freq' && ui.inc) ui.inc.freq = e.target.value;
+    else if (act === 'inc-extra' && ui.inc) ui.inc.extra = e.target.value;
+    else if (act === 'inc-rate' && ui.inc) ui.inc.rate = e.target.value;
+    else if (act === 'inc-hours' && ui.inc) ui.inc.hours = e.target.value;
+    else if (act === 'inc-otrate' && ui.inc) ui.inc.otRate = e.target.value;
+    else if (act === 'inc-othours' && ui.inc) ui.inc.othours = e.target.value;
+    else if (act === 'inc-date' && ui.inc) ui.inc.date = e.target.value;
+    else if (act === 'lg-date' && ui.lg) ui.lg.date = e.target.value;
+    else if (act === 'lg-amt' && ui.lg) ui.lg.amount = e.target.value;
+    else if (act === 'lg-note' && ui.lg) ui.lg.note = e.target.value;
+  });
+  // save the paycheck as soon as you tap out of a box, so it never gets lost if you forget to tap Save
+  $('#payTab').addEventListener('change', function(e){
+    var act = e.target.getAttribute('data-act');
+    if (act === 'ot-hours' && db) {
+      var hv = r2(parseFloat(e.target.value)), cur2 = Object.assign({}, incomeDoc);
+      if (hv > 0) cur2.ot = {month:isoToday().slice(0, 7), hours:hv}; else delete cur2.ot;
+      incomeDoc = cur2;
+      enqueue('income', function(){ return db.doc('data/users/' + uid + '/income').set(cur2); });
+      return;
+    }
+    if (['inc-amt', 'inc-freq', 'inc-extra', 'inc-rate', 'inc-hours', 'inc-otrate', 'inc-othours'].indexOf(act) < 0 || !ui.inc || !db) return;
+    var obj = incObj(ui.inc);
+    if (!obj) return;
+    incomeDoc = obj;
+    enqueue('income', function(){ return db.doc('data/users/' + uid + '/income').set(obj); });
+  });
   $('#billsTab').addEventListener('click', function(e){ recurClick('bill', e); });
   $('#subsTab').addEventListener('click', function(e){ recurClick('sub', e); });
   $('#billsTab').addEventListener('input', recurInput);
@@ -1751,10 +2061,6 @@ div.fld{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mu
     r.readAsText(f); e.target.value = '';
   });
   paintBackupNote();
-  $('#gearBtn').addEventListener('click', function(){
-    var panel = $('#toolsPanel'); panel.hidden = !panel.hidden;
-    this.setAttribute('aria-expanded', panel.hidden ? 'false' : 'true');
-  });
 
   /* ---------- startup ---------- */
   var CHEERS = [
@@ -1833,7 +2139,7 @@ div.fld{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mu
     uid = 'local'; db = makeLocalDb();
     var timer = null;
     db.collection('data/users/' + uid).onSnapshot(function(snap){
-      var np = {}, ns = {}, nc = {}, nh = [], nbl = {}, nsu = {}, ncat = {};
+      var np = {}, ns = {}, nc = {}, nh = [], nbl = {}, nsu = {}, ncat = {}, nin = {}, npl = {};
       snap.docs.forEach(function(d){
         var data = d.data() || {};
         if (d.id === 'settings') ns = data;
@@ -1843,8 +2149,10 @@ div.fld{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mu
         else if (d.id.indexOf('bill-') === 0) nbl[d.id] = data;
         else if (d.id.indexOf('sub-') === 0) nsu[d.id] = data;
         else if (d.id === 'categories') ncat = data;
+        else if (d.id === 'income') nin = data;
+        else if (d.id.indexOf('pay-') === 0) npl[d.id] = data;
       });
-      plans = np; settings = ns; cards = nc; hist = nh; bills = nbl; subs = nsu; catsDoc = ncat; loaded = true;
+      plans = np; settings = ns; cards = nc; hist = nh; bills = nbl; subs = nsu; catsDoc = ncat; incomeDoc = nin; payLog = npl; loaded = true;
       if (!snap.metadata.fromCache) clearTimeout(timer);
       if (!cheerOn) startCheer();
       render();
@@ -1853,10 +2161,23 @@ div.fld{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mu
       clearTimeout(timer); loaded = true; setStatus('Couldn’t load your saved data.'); render();
     });
   }
+  function setNav(open){
+    $('#drawer').classList.toggle('open', open);
+    $('#drawer').setAttribute('aria-hidden', open ? 'false' : 'true');
+    $('#scrim').hidden = !open;
+    $('#navBtn').setAttribute('aria-expanded', open ? 'true' : 'false');
+    document.body.style.overflow = open ? 'hidden' : '';
+  }
+  $('#navBtn').addEventListener('click', function(){ setNav(true); });
+  $('#drawerClose').addEventListener('click', function(){ setNav(false); });
+  $('#scrim').addEventListener('click', function(){ setNav(false); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') setNav(false); });
   $('#tabs').addEventListener('click', function(e){
     var b = e.target.closest('button[data-tab]'); if (!b) return;
-    ui.tab = b.getAttribute('data-tab'); render(); window.scrollTo(0, 0);
+    ui.tab = b.getAttribute('data-tab'); setNav(false); render(); window.scrollTo(0, 0);
   });
+  $('#toolsBtn').addEventListener('click', function(){ setNav(false); $('#toolsPanel').hidden = false; window.scrollTo(0, 0); });
+  $('#toolsClose').addEventListener('click', function(){ $('#toolsPanel').hidden = true; });
   var cardsEl = $('#cardsTab');
   cardsEl.addEventListener('click', function(e){
     var mb = e.target.closest('button[data-mact]'); if (mb) { msClick(mb); return; }
