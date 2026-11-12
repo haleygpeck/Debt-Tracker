@@ -543,12 +543,7 @@ button.cal-day{cursor:pointer}
       'due': function(a,b){ return dueT(a) - dueT(b); },
       'name': function(a,b){ return a.p.name.localeCompare(b.p.name); }
     };
-    arr.sort(function(a,b){
-      var d = 0;
-      for (var i = 0; i < ui.sorts.length && !d; i++) { var f = CMP[ui.sorts[i]]; if (f) d = f(a, b); }
-      if (!d) d = a.p.name.localeCompare(b.p.name) || a.id.localeCompare(b.id);
-      return d;
-    });
+    blendSort(arr, ui.sorts, CMP, function(a, b){ return a.p.name.localeCompare(b.p.name) || a.id.localeCompare(b.id); });
     return arr;
   }
 
@@ -876,12 +871,7 @@ button.cal-day{cursor:pointer}
       'priority': function(a,b){ return (a.c.priority in PRANK ? PRANK[a.c.priority] : 3) - (b.c.priority in PRANK ? PRANK[b.c.priority] : 3); },
       'name': function(a,b){ return (a.c.name||'').localeCompare(b.c.name||''); }
     };
-    arr.sort(function(a,b){
-      var d = 0;
-      for (var i = 0; i < ui.csorts.length && !d; i++) { var f = CMPD[ui.csorts[i]]; if (f) d = f(a, b); }
-      if (!d) d = (a.c.name||'').localeCompare(b.c.name||'');
-      return d;
-    });
+    blendSort(arr, ui.csorts, CMPD, function(a, b){ return (a.c.name || '').localeCompare(b.c.name || ''); });
     var sum = h('div',{class:'summary'});
     function stat(k, v){ sum.appendChild(h('div',{class:'stat'}, h('div',{class:'k',text:k}), h('div',{class:'v',text:v}))); }
     stat('Total other debts', money(r2(total)));
@@ -1229,6 +1219,22 @@ button.cal-day{cursor:pointer}
   var SORTS = [['bal-asc','Balance: least to greatest'],['bal-desc','Balance: greatest to least'],['pay-asc','Payoff: soonest first'],['pay-desc','Payoff: latest first'],['due','Next due: soonest first'],['name','Name: A to Z']];
   var CSORTS = [['bal-desc','Balance: greatest to least'],['bal-asc','Balance: least to greatest'],['priority','Priority: high to low'],['due','Due date: soonest first'],['type','Type'],['name','Name: A to Z']];
   var SORT_PAIR = {'bal-asc':'bal-desc','bal-desc':'bal-asc','pay-asc':'pay-desc','pay-desc':'pay-asc'};
+  // when several sorts are picked, every pick counts equally: each item is ranked on each pick, and the ranks are added up
+  function blendSort(arr, keys, CMP, tie){
+    var fs = keys.map(function(k){ return CMP[k]; }).filter(Boolean);
+    if (fs.length > 1) {
+      var score = new Map();
+      arr.forEach(function(x){ score.set(x, 0); });
+      fs.forEach(function(f){
+        var sorted = arr.slice().sort(function(a, b){ return f(a, b) || tie(a, b); });
+        var rank = 0;
+        sorted.forEach(function(x, i){ if (i > 0 && f(sorted[i - 1], x) !== 0) rank = i; score.set(x, score.get(x) + rank); });
+      });
+      arr.sort(function(a, b){ return (score.get(a) - score.get(b)) || fs[0](a, b) || tie(a, b); });
+    } else {
+      arr.sort(function(a, b){ return (fs[0] ? fs[0](a, b) : 0) || tie(a, b); });
+    }
+  }
   function sortLabel(opts, sel){
     var f = opts.filter(function(o){ return o[0] === sel[0]; })[0] || opts[0];
     return f[1];
@@ -1242,9 +1248,9 @@ button.cal-day{cursor:pointer}
       opts.forEach(function(o){
         var i = sel.indexOf(o[0]), on = i >= 0;
         pop.appendChild(h('button',{type:'button',class:'optrow' + (on ? ' on' : ''),role:'option','aria-selected':on ? 'true' : 'false','data-ms':which,'data-mact':'pick','data-v':o[0]},
-          h('span',{text:o[1]}), h('span',{class:'ck',text:on ? (sel.length > 1 ? String(i + 1) : '\u2665') : ''})));
+          h('span',{text:o[1]}), h('span',{class:'ck',text:on ? '\u2665' : ''})));
       });
-      pop.appendChild(h('p',{class:'note',text:'Pick more than one. The first one you pick sorts first, and the next ones break ties.'}));
+      pop.appendChild(h('p',{class:'note',text:'Pick more than one and the list blends them: items that rank well on all of your picks come first.'}));
       pop.appendChild(h('button',{type:'button',class:'btn','data-ms':which,'data-mact':'done',text:'Done'}));
       wrap.appendChild(pop);
     }
