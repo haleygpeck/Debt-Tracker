@@ -256,6 +256,10 @@ button.cal-day.has.sel,.cal-day.sel{background:var(--accent);color:var(--accent-
 .dayhead{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .dayhead .name{margin:0}
 button.cal-day{cursor:pointer}
+.nextpay{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:10px 0 0;padding:9px 14px;border-radius:14px;background:var(--chip);font-size:15px;color:var(--text)}
+.nextpay b{color:var(--accent);font-size:19px}
+.nextpay.late{color:var(--bad)}
+.nextpay.late b{color:var(--bad)}
 </style>
 </head>
 <body>
@@ -729,19 +733,28 @@ button.cal-day{cursor:pointer}
     ui.pedit = null; ui.pd = null; render();
     toast('Saved ' + name + '.');
   }
+  function nextPayEl(inf, late, done){
+    if (done || !(inf.nextAmt > 0)) return null;
+    return h('div',{class:'nextpay' + (late ? ' late' : '')},
+      h('span',{text: late ? 'Overdue' : 'Next payment'}),
+      h('b',{text:money(inf.nextAmt)}),
+      h('span',{text: inf.next ? '· ' + fmtDay(inf.next) : '· no date set'}));
+  }
   function compactCard(x){
     var p = x.p, id = x.id, inf = x.inf, rem = x.rem, done = rem <= 0.004;
     var pct = p.start > 0 ? Math.min(100, Math.max(0, (p.start - rem) / p.start * 100)) : 100;
     var bar = h('i'); bar.style.width = pct.toFixed(1) + '%';
     var ut = cardUtil(p); if (ut !== null) { bar.style.width = Math.min(100, ut).toFixed(1) + '%'; bar.className = utilClass(ut); }
     var late = !done && inf.next && inf.next < isoToday();
-    var sub = done ? 'Paid off 🎉' : (inf.next ? (late ? 'Overdue since ' : 'Next: ') + fmtDate(isoToLocal(inf.next)) + (inf.nextAmt ? ' · ' + money(inf.nextAmt) : '') : 'No due date yet');
+    var sub = done ? 'Paid off 🎉' : (p.autopay ? 'AutoPay on' : 'AutoPay off');
+    var np = nextPayEl(inf, late, done);
     var rows = p.sched || [], paidN = rows.filter(function(s){ return isPaidS(p, s); }).length;
     var line = rows.length ? (paidN + ' of ' + rows.length + ' scheduled payments paid') : 'Tap to add scheduled payments';
     return h('div',{class:'ccard' + (done ? ' done' : ''),role:'button',tabindex:'0','data-act':'open','data-id':id,'aria-label':'Open ' + p.name},
       h('div',{class:'top'},
-        h('div',{}, h('span',{class:'name',text:emojiFor(p) + ' ' + p.name}), stickerEl(pct, done), h('div',{class:'meta' + (late ? ' bad' : ''),text:sub})),
+        h('div',{}, h('span',{class:'name',text:emojiFor(p) + ' ' + p.name}), stickerEl(pct, done), h('div',{class:'meta',text:sub})),
         h('div',{class:'bal'}, h('b',{text:money(rem)}), h('span',{text: done ? '' : 'Payoff ' + fmtDate(inf.payoff)}))),
+      np,
       h('div',{class:'bar'}, bar),
       h('div',{class:'meta',text:line + '  ›'}));
   }
@@ -817,14 +830,16 @@ button.cal-day{cursor:pointer}
     var late = bal > 0.004 && inf.next && inf.next < isoToday();
     var line;
     if (bal <= 0.004) line = 'Paid off 🎉';
-    else if (inf.next) line = (late ? 'Overdue since ' : 'Next: ') + fmtDate(isoToLocal(inf.next)) + (inf.nextAmt ? ' · ' + money(inf.nextAmt) : '') + (inf.payoff ? ' · Payoff ' + fmtDate(inf.payoff) : '');
+    else if (inf.payoff) line = 'Payoff ' + fmtDate(inf.payoff);
     else line = 'Tap to schedule payments';
+    var np = nextPayEl(inf, late, bal <= 0.004);
     return h('div',{class:'ccard' + (bal <= 0.004 ? ' done' : ''),role:'button',tabindex:'0','data-act':'dOpen','data-id':id,'aria-label':'Open ' + p.name},
       h('div',{class:'top'},
         h('div',{}, h('span',{class:'name',text:emojiFor(p) + ' ' + p.name}), stickerEl(pct, bal <= 0.004), prioEl(p), h('div',{class:'meta',text:bits.join(' · ')})),
         h('div',{class:'bal'}, h('b',{text:money(bal)}), h('span',{text:'balance'}))),
+      np,
       h('div',{class:'bar'}, bar),
-      h('div',{class:'meta' + (late ? ' bad' : ''),text:line}));
+      h('div',{class:'meta',text:line}));
   }
   function renderCards(){
     if (ui.dview && !cards[ui.dview] && loaded) ui.dview = null;
