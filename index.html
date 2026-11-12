@@ -2171,7 +2171,6 @@ button.tile.lock{box-shadow:none;background:var(--chip)}
       det.addEventListener('toggle', function(){ ui.rOpen['pc:list'] = det.open; });
       card.appendChild(det);
     } else card.appendChild(h('p',{class:'note',text:'Nothing due this pay period 💗'}));
-    if (idx !== curIdx) card.appendChild(h('div',{class:'toolbar'}, h('button',{class:'btn ghost','data-act':'pcNow',text:'Back to current paycheck'})));
     return card;
   }
 
@@ -2628,20 +2627,6 @@ var BADGE_IMG = {'fresh':'data:image/webp;base64,UklGRpZ0AABXRUJQVlA4WAoAAAAQAAA
     Object.keys(cards).forEach(function(k){ t += remaining(debtP(k)); });
     return r2(t);
   }
-  function headsUpEl(){
-    var today = isoToday(), endD = isoToLocal(today); endD.setDate(endD.getDate() + 3);
-    var soon = itemsInRange(today, isoOf(endD)).sort(function(a, b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
-    if (!soon.length) return null;
-    var box = h('div',{class:'alertpill',role:'button',tabindex:'0','data-act':'goTab','data-tab':'upcoming','aria-label':'Open upcoming payments'});
-    if (soon.length) {
-      var tot = 0; soon.forEach(function(x){ tot += x.amount || 0; });
-      box.appendChild(h('div',{class:'ap-line',text:'💗 ' + soon.length + ' payment' + (soon.length === 1 ? '' : 's') + ' due in the next 3 days'}));
-      var names = money(r2(tot)) + ' · ' + soon.slice(0, 3).map(function(x){ return x.p.name + ' ' + shortDate(x.date); }).join(' · ');
-      if (soon.length > 3) names += ' · +' + (soon.length - 3) + ' more';
-      box.appendChild(h('div',{class:'ap-sub',text:names}));
-    }
-    return box;
-  }
   function heartCardEl(ctx){
     var pct = ctx.pct, start = ctx.start;
     var HEART = 'M50 88 C10 58 2 36 2 24 C2 10 13 2 26 2 C36 2 45 8 50 17 C55 8 64 2 74 2 C87 2 98 10 98 24 C98 36 90 58 50 88 Z';
@@ -2696,7 +2681,6 @@ var BADGE_IMG = {'fresh':'data:image/webp;base64,UklGRpZ0AABXRUJQVlA4WAoAAAAQAAA
           h('div',{}, h('span',{class:'name',text:emoji + ' ' + title}), h('div',{class:'meta',text:sub})),
           h('div',{class:'bal'}, h('b',{text:big}))));
     }
-    var hu = headsUpEl(); if (hu) host.appendChild(hu);
     host.appendChild(heartCardEl(awardCtx()));
     var ot0 = outgoTotals(), incMo0 = incomeMonthly(incomeDoc);
     if (incMo0 > 0) {
