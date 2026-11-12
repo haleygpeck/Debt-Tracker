@@ -468,10 +468,16 @@ button.cal-day{cursor:pointer}
 
   /* ---------- math ---------- */
   function paidSum(p){ return (p.payments||[]).reduce(function(s,x){return s + (Number(x.amount)||0);},0); }
-  function remaining(p){ return Math.max(0, r2((p.start||0) - paidSum(p))); }
+  function chargesSum(p){ return (p.charges || []).reduce(function(s, x){ return s + (Number(x.amount) || 0); }, 0); }
+  function isCC(p){ return !!(p && p.isDebt && (p.type || 'Credit card') === 'Credit card'); }
+  function remaining(p){ return Math.max(0, r2((p.start||0) + chargesSum(p) - paidSum(p))); }
   function monthly(p){
     if (p.monthly > 0) return p.monthly;
-    if (p.isDebt) return p.min > 0 ? p.min : 0;
+    if (p.isDebt) {
+      if (p.min > 0) return p.min;
+      if (isCC(p)) { var u0 = (p.sched || []).filter(function(s2){ return !isPaidS(p, s2) && s2.amount > 0; })[0]; return u0 ? u0.amount : 0; }
+      return 0;
+    }
     var left = Math.max(1, (p.total||1) - (p.done||0));
     return r2((p.start||0) / left);
   }
@@ -489,10 +495,11 @@ button.cal-day{cursor:pointer}
     var t = new Date(); return new Date(t.getFullYear(), t.getMonth(), t.getDate());
   }
   function info(p){
-    var rem = remaining(p), out = {rem:rem, left:0, payoff:null, next:null, nextAmt:null, hasSched:(p.sched||[]).length > 0};
+    var cc = isCC(p);
+    var rem = remaining(p), out = {rem:rem, left:0, payoff:null, next:null, nextAmt:null, hasSched:!cc && (p.sched||[]).length > 0};
     if (rem < 0.005) return out;
     var m = monthly(p);
-    var u = sched(p).filter(function(s){ return !isPaidS(p, s) && s.date && s.amount > 0; });
+    var u = cc ? [] : sched(p).filter(function(s){ return !isPaidS(p, s) && s.date && s.amount > 0; });
     if (u.length) {
       out.next = u[0].date; out.nextAmt = u[0].amount;
       var cum = 0, last = null;
@@ -504,10 +511,11 @@ button.cal-day{cursor:pointer}
       var extra = Math.max(1, Math.ceil((rem - cum) / m - 1e-9));
       out.left = u.length + extra; out.payoff = addMonths(last, extra); return out;
     }
-    if (!(m > 0)) { out.next = p.due || null; return out; }
+    var ccNext = (cc && p.due) ? effectiveDue({due:p.due, freq:'monthly'}) : null;
+    if (!(m > 0)) { out.next = ccNext || p.due || null; return out; }
     out.left = Math.max(1, Math.ceil(rem / m - 1e-9));
-    out.payoff = addMonths(baseDate(p), out.left - 1);
-    out.next = p.due || null; out.nextAmt = Math.min(m, rem);
+    out.payoff = addMonths(ccNext ? isoToLocal(ccNext) : baseDate(p), out.left - 1);
+    out.next = ccNext || p.due || null; out.nextAmt = Math.min(m, rem);
     return out;
   }
 
@@ -636,7 +644,8 @@ button.cal-day{cursor:pointer}
     var mInput = h('input',{type:'number',step:'0.01',min:'0.01',inputmode:'decimal','data-id':id,'data-act':'monthly','aria-label':'Typical payment for ' + p.name});
     mInput.value = (p.monthly > 0 ? p.monthly : m).toFixed(2);
 
-    var dueBox = h('div',{class:'mini'}, h('div',{class:'k',text:'Next due'}));
+    var cc = isCC(p);
+    var dueBox = h('div',{class:'mini'}, h('div',{class:'k',text:cc ? 'Due each month' : 'Next due'}));
     var hint = h('div',{class:'hint'});
     if (inf.hasSched) {
       dueBox.appendChild(h('div',{class:'v',text: done ? '—' : (inf.next ? fmtDate(isoToLocal(inf.next)) + (inf.nextAmt ? ' · ' + money(inf.nextAmt) : '') : 'None left')}));
@@ -654,30 +663,38 @@ button.cal-day{cursor:pointer}
     }
     dueBox.appendChild(hint);
 
-    var amt = h('input',{type:'number',step:'0.01',min:'0.01',inputmode:'decimal',placeholder:'Amount paid',class:'amt','data-id':id,'data-act':'amt','aria-label':'Extra payment toward ' + p.name});
+    var amt = h('input',{type:'number',step:'0.01',min:'0.01',inputmode:'decimal',placeholder:cc ? 'Amount' : 'Amount paid',class:'amt','data-id':id,'data-act':'amt','aria-label':'Amount for ' + p.name});
     if (d.amt) amt.value = d.amt;
     var dt = h('input',{type:'date',class:'dt','data-id':id,'data-act':'date','aria-label':'Payment date'});
     dt.value = d.date || isoToday();
 
-    var pays = (p.payments||[]).slice().sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+    var acts = (p.payments || []).map(function(x){ return {kind:'pay', id:x.id, date:x.date, amount:x.amount, sid:x.sid}; });
+    if (cc) (p.charges || []).forEach(function(x){ acts.push({kind:'charge', id:x.id, date:x.date, amount:x.amount}); });
+    acts.sort(function(a, b){ return (b.date || '').localeCompare(a.date || ''); });
     var ul = h('ul',{class:'hist'});
-    if (!pays.length) ul.appendChild(h('li',{text:'No payments logged yet.'}));
-    pays.forEach(function(pay){
-      ul.appendChild(h('li',{}, h('span',{text: fmtDate(isoToLocal(pay.date)) + ' · ' + money(pay.amount) + (pay.sid ? ' · scheduled' : '')}),
-        h('button',{class:'x','data-act':'undo','data-id':id,'data-pid':pay.id,'aria-label':'Remove this payment',text:'Remove'})));
+    if (!acts.length) ul.appendChild(h('li',{text: cc ? 'Nothing logged yet.' : 'No payments logged yet.'}));
+    acts.forEach(function(a){
+      var label = a.kind === 'charge' ? '+' + money(a.amount) + ' purchase' : (cc ? '−' + money(a.amount) + ' payment' : money(a.amount) + (a.sid ? ' · scheduled' : ''));
+      ul.appendChild(h('li',{}, h('span',{text: fmtDate(isoToLocal(a.date)) + ' · ' + label}),
+        h('button',{class:'x','data-act':a.kind === 'charge' ? 'undoC' : 'undo','data-id':id,'data-pid':a.id,'aria-label':'Remove this entry',text:'Remove'})));
     });
-    var det = h('details',{'data-id':id,'data-kind':'hist'}, h('summary',{text:'Payment history (' + pays.length + ')'}), ul);
+    var det = h('details',{'data-id':id,'data-kind':'hist'}, h('summary',{text:(cc ? 'Activity (' : 'Payment history (') + acts.length + ')'}), ul);
     if (openHist[id]) det.setAttribute('open','');
 
-    var logRow = done
-      ? h('p',{class:'paidtag',text:'Paid off 🎉'})
-      : h('div',{class:'log'}, amt, dt,
-          h('button',{class:'btn','data-act':'log','data-id':id,text:'Log extra payment'}),
-          (m > 0 ? h('button',{class:'btn ghost','data-act':'fill','data-id':id,text:'Use ' + money(Math.min(m, rem))}) : null));
+    var logRow = cc
+      ? h('div',{class:'log'}, amt, dt,
+          h('button',{class:'btn','data-act':'log','data-id':id,text:'Log a payment'}),
+          h('button',{class:'btn ghost','data-act':'charge','data-id':id,text:'Log a purchase'}),
+          (m > 0 && !done ? h('button',{class:'btn ghost','data-act':'fill','data-id':id,text:'Use ' + money(Math.min(m, rem))}) : null))
+      : (done
+        ? h('p',{class:'paidtag',text:'Paid off 🎉'})
+        : h('div',{class:'log'}, amt, dt,
+            h('button',{class:'btn','data-act':'log','data-id':id,text:'Log extra payment'}),
+            (m > 0 ? h('button',{class:'btn ghost','data-act':'fill','data-id':id,text:'Use ' + money(Math.min(m, rem))}) : null)));
 
     return h('div',{class:'card' + (done ? ' done' : ''),'data-card':id},
       h('div',{class:'top'},
-        h('div',{}, h('p',{class:'name',text:emojiFor(p) + ' ' + p.name}), stickerEl(pct, done), (p.isDebt ? prioEl(p) : null),
+        h('div',{}, h('p',{class:'name',text:emojiFor(p) + ' ' + p.name}), (cc ? (done ? stickerEl(100, true) : null) : stickerEl(pct, done)), (p.isDebt ? prioEl(p) : null),
           h('div',{class:'meta',text: p.isDebt ? ((p.type || 'Debt') + (cardUtil(p) !== null ? ' · ' + Math.round(cardUtil(p)) + '% of limit used' : '') + (p.apr > 0 ? ' · APR ' + p.apr + '%' : '')) : ((p.done||0) + ' of ' + (p.total||0) + ' payments when added · AutoPay ' + (p.autopay ? 'on' : 'off'))})),
         h('div',{class:'bal'}, h('b',{text:money(rem)}), h('span',{text:'remaining'}))),
       h('div',{class:'bar'}, bar),
@@ -686,7 +703,7 @@ button.cal-day{cursor:pointer}
         dueBox,
         h('div',{class:'mini'}, h('div',{class:'k',text:'Payments left'}), h('div',{class:'v',text:String(inf.left)})),
         h('div',{class:'mini'}, h('div',{class:'k',text:'Est. payoff'}), h('div',{class:'v',text: done ? 'Done' : fmtDate(inf.payoff)}))),
-      schedSection(x), logRow, det);
+      (cc ? null : schedSection(x)), logRow, det);
   }
 
   function planEditor(id){
@@ -785,7 +802,7 @@ button.cal-day{cursor:pointer}
       h('div',{class:'grid2'}, labeled('Type', ts), labeled('Priority', ps)),
       h('div',{class:'grid2'}, labeled('Balance', inp('cf-bal','number',e.balance)), isCard ? labeled('Credit limit (optional)', inp('cf-limit','number',e.limit)) : labeled('Original amount (optional)', inp('cf-orig','number',e.orig))),
       h('div',{class:'grid2'}, labeled('APR % (optional)', inp('cf-apr','number',e.apr)), labeled('Minimum payment (optional)', inp('cf-min','number',e.min))),
-      labeled('Payment due date (optional)', inp('cf-due','date',e.due)),
+      labeled((e.type || 'Credit card') === 'Credit card' ? 'Payment due date (repeats every month)' : 'Payment due date (optional)', inp('cf-due','date',e.due)),
       btns);
   }
   function cardItem(x){
@@ -831,11 +848,11 @@ button.cal-day{cursor:pointer}
     var line;
     if (bal <= 0.004) line = 'Paid off 🎉';
     else if (inf.payoff) line = 'Payoff ' + fmtDate(inf.payoff);
-    else line = 'Tap to schedule payments';
+    else line = isCC(p) ? 'Tap to log payments or purchases' : 'Tap to schedule payments';
     var np = nextPayEl(inf, late, bal <= 0.004);
     return h('div',{class:'ccard' + (bal <= 0.004 ? ' done' : ''),role:'button',tabindex:'0','data-act':'dOpen','data-id':id,'aria-label':'Open ' + p.name},
       h('div',{class:'top'},
-        h('div',{}, h('span',{class:'name',text:emojiFor(p) + ' ' + p.name}), stickerEl(pct, bal <= 0.004), prioEl(p), h('div',{class:'meta',text:bits.join(' · ')})),
+        h('div',{}, h('span',{class:'name',text:emojiFor(p) + ' ' + p.name}), (isCC(p) ? (bal <= 0.004 ? stickerEl(100, true) : null) : stickerEl(pct, bal <= 0.004)), prioEl(p), h('div',{class:'meta',text:bits.join(' · ')})),
         h('div',{class:'bal'}, h('b',{text:money(bal)}), h('span',{text:'balance'}))),
       np,
       h('div',{class:'bar'}, bar),
@@ -933,8 +950,8 @@ button.cal-day{cursor:pointer}
     var type = e.type || 'Credit card', isCard = type === 'Credit card';
     var obj = {name:name, emoji:Array.from((e.emoji || '').trim()).slice(0, 3).join(''), type:type, balance:bal, limit:isCard ? pos(e.limit) : 0, orig:isCard ? 0 : pos(e.orig), apr:pos(e.apr), min:pos(e.min), due:e.due || '', priority:e.priority || '', updated:isoToday()};
     var isNew = ui.cardEdit === 'new';
-    if (isNew) { obj.start = bal; obj.payments = []; obj.sched = []; }
-    else { obj.start = r2(bal + paidSum(debtP(id) || {payments:[]})); }
+    if (isNew) { obj.start = bal; obj.payments = []; obj.sched = []; obj.charges = []; }
+    else { var dpx = debtP(id) || {payments:[], charges:[]}; obj.start = r2(bal + paidSum(dpx) - chargesSum(dpx)); }
     enqueue(id, function(){ return isNew ? planRef(id).set(obj) : planRef(id).update(obj); });
     ui.cardEdit = null; ui.cd = null; ui.confirmDel = null; render();
     toast('Saved ' + name + '.');
@@ -962,6 +979,7 @@ button.cal-day{cursor:pointer}
     var out = [];
     function addFrom(id, p, kind){
       if (!p || p.archived) return;
+      if (kind === 'debt' && isCC(p)) return;
       var rem = remaining(p); if (rem <= 0.004) return;
       var sc = sched(p).filter(function(x){ return !isPaidS(p, x) && x.date && x.amount > 0; });
       if (sc.length) {
@@ -1034,6 +1052,17 @@ button.cal-day{cursor:pointer}
           if (d.getFullYear() === y && d.getMonth() === m) items.push({id:id, sid:null, kind:kind, p:Object.assign({}, it, {rkind:kind}), date:isoOf(d), amount:Number(it.amount) || 0, note:'', cat:it.category || ''});
         }
       });
+    });
+    Object.keys(cards).forEach(function(id){
+      var c = debtP(id); if (!isCC(c) || !c.due) return;
+      var crem = remaining(c); if (crem <= 0.004) return;
+      var base = isoToLocal(c.due); if (!base) return;
+      var camt = monthly(c) > 0 ? Math.min(monthly(c), crem) : 0;
+      for (var k = 0; k < 4000; k++) {
+        var d = stepDate(base, 'monthly', k);
+        if (d > mEnd) break;
+        if (d.getFullYear() === y && d.getMonth() === m) items.push({id:id, sid:null, kind:'debt', p:c, date:isoOf(d), amount:camt, note:''});
+      }
     });
     items = items.filter(kindOk); earlier = earlier.filter(kindOk);
     items.sort(function(a, b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : (a.p.name || '').localeCompare(b.p.name || '')); });
@@ -1886,7 +1915,7 @@ button.cal-day{cursor:pointer}
     var p = Object.assign({}, c);
     p.isDebt = true; p.name = c.name || 'Debt';
     p.start = c.start !== undefined ? c.start : (Number(c.balance) || 0);
-    p.payments = c.payments || []; p.sched = c.sched || [];
+    p.payments = c.payments || []; p.sched = c.sched || []; p.charges = c.charges || [];
     return p;
   }
   function getP(id){ return plans[id] || debtP(id); }
@@ -1904,17 +1933,32 @@ button.cal-day{cursor:pointer}
     var amt = r2(parseFloat(d.amt));
     if (!(amt > 0)) return toast('Enter an amount first.');
     var rem = remaining(p);
-    if (rem <= 0.004) return toast('That plan is already paid off.');
+    if (rem <= 0.004) return toast(isCC(p) ? 'That card is already at $0.' : 'That plan is already paid off.');
     var capped = false;
     if (amt > rem) { amt = rem; capped = true; }
     var entry = {id:nid(), date: d.date || isoToday(), amount: amt};
     delete drafts[id];
     var upd = {payments: (p.payments||[]).concat([entry])}, adv = false;
-    if (!(p.sched||[]).length && p.due && monthly(p) > 0 && amt >= Math.min(monthly(p), rem) - 0.005) { upd.due = isoOf(addMonths(isoToLocal(p.due), 1)); adv = true; }
+    if (!isCC(p) && !(p.sched||[]).length && p.due && monthly(p) > 0 && amt >= Math.min(monthly(p), rem) - 0.005) { upd.due = isoOf(addMonths(isoToLocal(p.due), 1)); adv = true; }
     save(id, upd);
-    var msL = milestoneHit(pctPaid(p, rem), pctPaid(p, rem - amt));
+    var msL = isCC(p) ? null : milestoneHit(pctPaid(p, rem), pctPaid(p, rem - amt));
     if (rem - amt <= 0.004) { fx.celebrate(); msL = null; } else if (msL) fx.burst(lastTap.x, lastTap.y, 80); else fx.burst(lastTap.x, lastTap.y, 30);
     toast((capped ? ('Logged ' + money(amt) + ' (that’s all that was left).') : ('Logged ' + money(amt) + ' toward ' + p.name + '.')) + (adv ? ' Due date moved ahead a month.' : '') + (msL ? ' ' + msL : ''));
+  }
+  function logCharge(id){
+    if (!db) return toast('Saving isn’t available right now.');
+    var p = getP(id), d = drafts[id] || {}, amt = r2(parseFloat(d.amt));
+    if (!(amt > 0)) return toast('Enter an amount first.');
+    var entry = {id:nid(), date:d.date || isoToday(), amount:amt};
+    var newBal = r2(remaining(p) + amt);
+    delete drafts[id];
+    save(id, {charges:(p.charges || []).concat([entry])});
+    toast('Added a ' + money(amt) + ' purchase. Balance is now ' + money(newBal) + '.');
+  }
+  function undoCharge(id, cid){
+    if (!db) return;
+    save(id, {charges:(getP(id).charges || []).filter(function(x){ return x.id !== cid; })});
+    toast('Purchase removed.');
   }
   function undo(id, pid){
     if (!db) return;
@@ -2014,6 +2058,8 @@ button.cal-day{cursor:pointer}
     var p = getP(id);
     if (act === 'log') logPayment(id);
     else if (act === 'undo') undo(id, b.getAttribute('data-pid'));
+    else if (act === 'undoC') undoCharge(id, b.getAttribute('data-pid'));
+    else if (act === 'charge') logCharge(id);
     else if (act === 'fill') { drafts[id] = drafts[id] || {}; drafts[id].amt = Math.min(monthly(p), remaining(p)).toFixed(2); render(); }
     else if (act === 'toggle') toggleSched(id, sid);
     else if (act === 'editS') {
