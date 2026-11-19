@@ -10,8 +10,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Debt Tracker">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<link rel="apple-touch-icon" href="icon-180.png?v=3">
-<link rel="icon" type="image/png" href="icon-192.png?v=3">
+<link rel="apple-touch-icon" href="icon-180.png?v=4">
+<link rel="icon" type="image/png" href="icon-192.png?v=4">
 <link rel="manifest" href="manifest.webmanifest">
 <title>Debt Tracker</title>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Pacifico&display=swap" rel="stylesheet">
@@ -463,6 +463,7 @@ button.tile.lock{box-shadow:none;background:var(--chip)}
 .homeimg{height:1.22em;width:auto;margin-right:8px;flex:0 0 auto;-webkit-user-drag:none}
 .homeimg.sm{height:34px;margin:0 auto 4px;display:block}
 
+.onceRow{margin:4px 0 8px}
 </style>
 </head>
 <body>
@@ -1282,6 +1283,10 @@ button.tile.lock{box-shadow:none;background:var(--chip)}
         if (it.archived || !it.due) return;
         var eff = effectiveDue(it); if (!eff) return;
         var base = isoToLocal(eff);
+        if (it.once) {
+          if (!(it.paid && it.paid[it.due])) out.push({id:id, sid:null, kind:kind, fut:false, p:Object.assign({}, it, {rkind:kind}), date:it.due, amount:Number(it.amount) || 0, note:'', cat:it.category || ''});
+          return;
+        }
         for (var k = 0; k < 12; k++) {
           var iso = isoOf(stepDate(base, it.freq, k));
           if (k > 0 && iso > lim30r) break;
@@ -1294,7 +1299,7 @@ button.tile.lock{box-shadow:none;background:var(--chip)}
   }
   function urow(x){
     var isRec = x.kind === 'bill' || x.kind === 'sub';
-    var late = !isRec && x.date < isoToday();
+    var late = (!isRec || (x.p && x.p.once)) && x.date < isoToday();
     var tick = x.sid
       ? h('button',{class:'tick','data-act':'toggle','data-id':x.id,'data-sid':x.sid,'aria-label':'Mark paid: ' + x.p.name,text:'\u2661'})
       : (isRec ? h('button',{class:'tick','data-act':'rPaid','data-kind':x.kind,'data-id':x.id,'data-date':x.date,'aria-label':(x.paid ? 'Undo checked off: ' : 'Check off: ') + x.p.name,text:x.paid ? '\u2665' : '\u2661'}) : h('span',{class:'tickgap'}));
@@ -1315,6 +1320,21 @@ button.tile.lock{box-shadow:none;background:var(--chip)}
     render();
     if (nowPaid) toast('Checked off: ' + it.name + ' ✓', function(){ markRecurPaid(kind, id, dateIso); });
   }
+  // one-time bills whose date has passed and that aren't checked off yet
+  function overdueOnceBills(){
+    var out = [], today = isoToday();
+    Object.keys(bills).forEach(function(id){
+      var it = bills[id]; if (!it || it.archived || !it.once || !it.due) return;
+      var fl = (it.flex && Number(it.flex.amount) > 0 && isoToLocal(it.flex.due)) ? it.flex : null;
+      var pcs = [{d:it.due, amt:(Number(it.amount) || 0) + (fl ? (Number(it.fee) || 0) : 0), note:fl ? 'Flex payment 1 of 2' : ''}];
+      if (fl) pcs.push({d:fl.due, amt:Number(fl.amount) + (Number(fl.fee) || 0), note:'Flex payment 2 of 2'});
+      pcs.forEach(function(pc){
+        if (!isoToLocal(pc.d) || pc.d >= today || (it.paid && it.paid[pc.d])) return;
+        out.push({id:id, sid:null, kind:'bill', p:Object.assign({}, it, {rkind:'bill'}), date:pc.d, amount:pc.amt, note:pc.note, cat:it.category || '', paid:false});
+      });
+    });
+    return out;
+  }
   // everything due from startIso to endIso (inclusive): debt payments, bills and subscriptions (with Flex), and credit card due dates
   function itemsInRange(startIso, endIso, onlyPaid){
     var out = [];
@@ -1333,6 +1353,7 @@ button.tile.lock{box-shadow:none;background:var(--chip)}
         if (hasFlex) pieces.push({base:isoToLocal(it.flex.due), amt:Number(it.flex.amount) + fee2, note:'Flex payment 2 of 2' + (fee2 > 0 ? ' (includes ' + money(fee2) + ' fee)' : '')});
         pieces.forEach(function(pc){
           for (var k = 0; k < 4000; k++) {
+            if (it.once && k > 0) break;
             var d = stepDate(pc.base, it.freq, k);
             if (d > e0) break;
             if (d >= s0) {
@@ -1370,7 +1391,7 @@ button.tile.lock{box-shadow:none;background:var(--chip)}
     var monthName = new Date(y, m, 1).toLocaleDateString('en-US', {month:'long'});
     var debtItems = collectUpcoming().filter(function(x){ return x.kind === 'plan' || x.kind === 'debt'; });
     var items = itemsInRange(mStart, isoOf(mEnd));
-    var earlier = (mk === cur) ? debtItems.filter(function(x){ return x.date < mStart; }) : [];
+    var earlier = (mk === cur) ? debtItems.filter(function(x){ return x.date < mStart; }).concat(overdueOnceBills().filter(function(x){ return x.date < mStart; })) : [];
     items = items.filter(kindOk); earlier = earlier.filter(kindOk);
     var paidItems = itemsInRange(mStart, isoOf(mEnd), true).filter(kindOk);
     items.sort(function(a, b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : (a.p.name || '').localeCompare(b.p.name || '')); });
@@ -1710,7 +1731,9 @@ button.tile.lock{box-shadow:none;background:var(--chip)}
     var map = recurMap(kind);
     Object.keys(map).forEach(function(id){ if ((map[id].category || 'Other') === from) save(id, {category:to}); });
   }
+  function isOnce(it){ return !!(it && it.once); }
   function monthlyAmt(it){
+    if (it.once) return 0;
     var f = FREQ.filter(function(x){ return x[0] === it.freq; })[0] || FREQ[0];
     var base = Number(it.amount) || 0;
     if (it.flex && Number(it.flex.amount) > 0) base += Number(it.flex.amount) + (Number(it.fee) || 0) + (Number(it.flex.fee) || 0);
@@ -1725,6 +1748,7 @@ button.tile.lock{box-shadow:none;background:var(--chip)}
   }
   // bills and subscriptions repeat on their own: the due date always rolls forward to the next one
   function effectiveDue(it){
+    if (it.once) return it.due || null;
     var d = isoToLocal(it.due); if (!d) return null;
     var today = isoToLocal(isoToday());
     if (d < today) {
@@ -1736,7 +1760,7 @@ button.tile.lock{box-shadow:none;background:var(--chip)}
   }
   function recurDraft(it){
     var fx2 = it.flex && Number(it.flex.amount) > 0 ? it.flex : null;
-    return {name:it.name || '', category:it.category || '', amount:it.amount, due:it.due || '', flex:fx2 ? 'on' : 'off', amount2:fx2 ? fx2.amount : '', due2:fx2 ? fx2.due : '', fee1:(fx2 && it.fee) ? it.fee : '', fee2:(fx2 && fx2.fee) ? fx2.fee : ''};
+    return {once:!!it.once, name:it.name || '', category:it.category || '', amount:it.amount, due:it.due || '', flex:fx2 ? 'on' : 'off', amount2:fx2 ? fx2.amount : '', due2:fx2 ? fx2.due : '', fee1:(fx2 && it.fee) ? it.fee : '', fee2:(fx2 && fx2.fee) ? fx2.fee : ''};
   }
   function recurTotals(){
     var out = {bill:{mo:0, n:0}, sub:{mo:0, n:0}};
@@ -1784,6 +1808,7 @@ button.tile.lock{box-shadow:none;background:var(--chip)}
       flexSel.value = e.flex || 'off';
     }
     var isNew = id === 'new', cur = isNew ? null : recurMap(kind)[id];
+    var onceOn = kind === 'bill' && !!e.once, dueWord = onceOn ? '' : ' (repeats monthly)';
     var btns = h('div',{class:'row'},
       h('button',{class:'btn','data-act':'rSave',text:'Save'}),
       h('button',{class:'btn ghost','data-act':'rCancel',text:'Cancel'}));
@@ -1794,11 +1819,12 @@ button.tile.lock{box-shadow:none;background:var(--chip)}
     return h('div',{class:'card'}, h('div',{class:'editor'},
       labeled(R.label + ' name', inp('rf-name','text',e.name, kind === 'bill' ? 'e.g. Electric bill' : 'e.g. Netflix')),
       (flexSel ? labeled('How do you pay it?', flexSel) : null),
-      (flexOn ? null : h('div',{class:'grid2'}, labeled('Amount', inp('rf-amt','number',e.amount,'0.00','0.01')), labeled('Due date (repeats monthly)', inp('rf-due','date',e.due)))),
+      (kind === 'bill' ? h('div',{class:'onceRow'}, switchEl('rf-once', id, !onceOn, 'Repeats every month')) : null),
+      (flexOn ? null : h('div',{class:'grid2'}, labeled('Amount', inp('rf-amt','number',e.amount,'0.00','0.01')), labeled('Due date' + dueWord, inp('rf-due','date',e.due)))),
       (flexOn ? h('div',{class:'grid2'}, labeled('First payment amount', inp('rf-amt','number',e.amount,'0.00','0.01')), labeled('First payment fee', inp('rf-fee1','number',e.fee1,'0.00','0.01'))) : null),
-      (flexOn ? labeled('First payment due date (repeats monthly)', inp('rf-due','date',e.due)) : null),
+      (flexOn ? labeled('First payment due date' + dueWord, inp('rf-due','date',e.due)) : null),
       (flexOn ? h('div',{class:'grid2'}, labeled('Second payment amount', inp('rf-amt2','number',e.amount2,'0.00','0.01')), labeled('Second payment fee', inp('rf-fee2','number',e.fee2,'0.00','0.01'))) : null),
-      (flexOn ? labeled('Second payment due date (repeats monthly)', inp('rf-due2','date',e.due2)) : null),
+      (flexOn ? labeled('Second payment due date' + dueWord, inp('rf-due2','date',e.due2)) : null),
       h('div',{class:'fgroup',text:'Category'}), chips, catBox,
       btns));
   }
@@ -1819,6 +1845,7 @@ button.tile.lock{box-shadow:none;background:var(--chip)}
         obj.flex = {amount:a2, due:e.due2, fee:r2(parseFloat(e.fee2)) || 0};
       } else { obj.flex = null; obj.fee = null; }
     }
+    if (kind === 'bill') obj.once = !!e.once;
     if (isNew) { obj.freq = 'monthly'; obj.archived = false; }
     enqueue(id, function(){ return isNew ? planRef(id).set(obj) : planRef(id).update(obj); });
     ui.rEdit = null; ui.rd = null; ui.rdel = false; ui.cgEdit = null; ui.cg = null; render();
@@ -1840,10 +1867,14 @@ button.tile.lock{box-shadow:none;background:var(--chip)}
     var cyc = fl ? flexCycle(it) : null;
     var p1 = (Number(it.amount) || 0) + (fl ? (Number(it.fee) || 0) : 0), p2 = fl ? Number(fl.amount) + (Number(fl.fee) || 0) : 0;
     var total = p1 + p2;
-    var ssText = paused ? 'Paused' : (fl ? 'Flex · ' + money(p1) + ' on ' + (cyc ? shortDate(cyc.a) : '?') + ' + ' + money(p2) + ' on ' + (cyc ? shortDate(cyc.b) : '?') + ' (fees included)' : (eff ? 'Due ' + fmtDay(eff) : 'No due date'));
+    var once = isOnce(it), dts = [it.due].concat(fl ? [fl.due] : []).filter(Boolean), tdy = isoToday();
+    var allPaid = once && dts.length > 0 && dts.every(function(d0){ return it.paid && it.paid[d0]; });
+    var lateOnce = once && !allPaid && dts.some(function(d0){ return d0 < tdy && !(it.paid && it.paid[d0]); });
+    var oPre = once ? (allPaid ? '\u2665 Paid \u00b7 ' : (lateOnce ? 'Overdue \u00b7 ' : '')) : '', oSuf = once ? ' \u00b7 one time' : '';
+    var ssText = paused ? 'Paused' : oPre + (fl ? 'Flex · ' + money(p1) + ' on ' + (cyc ? shortDate(cyc.a) : '?') + ' + ' + money(p2) + ' on ' + (cyc ? shortDate(cyc.b) : '?') + ' (fees included)' : (eff ? 'Due ' + fmtDay(eff) : 'No due date')) + oSuf;
     var inf = h('button',{class:'sinfo','data-act':'rEdit','data-id':x.id,'aria-label':'Edit ' + it.name},
       h('span',{class:'sl',text:recurEmoji(kind, it) + ' ' + it.name}),
-      h('span',{class:'sa',text:money(total) + (FREQ_SHORT[it.freq] || '/mo')}),
+      h('span',{class:'sa',text:money(total) + (once ? '' : (FREQ_SHORT[it.freq] || '/mo'))}),
       h('span',{class:'ss',text:ssText}));
     return h('div',{class:'srow'}, inf);
   }
@@ -1883,7 +1914,7 @@ button.tile.lock{box-shadow:none;background:var(--chip)}
       });
       var k = kind + ':' + g.c;
       var emo = catEmoji(kind, g.c) || (g.c === 'Other' ? '✨' : '📌');
-      var det = h('details',{class:'sched ugroup'}, h('summary',{text:emo + ' ' + g.c + ' (' + arr.length + ') · ' + money(r2(g.t)) + '/mo'}));
+      var det = h('details',{class:'sched ugroup'}, h('summary',{text:emo + ' ' + g.c + ' (' + arr.length + ') · ' + (arr.every(function(x){ return isOnce(x.it); }) ? 'one time' : money(r2(g.t)) + '/mo')}));
       var hasEdit = arr.some(function(x){ return x.id === editing; });
       if (ui.rOpen[k] !== false || hasEdit) det.setAttribute('open','');
       det.addEventListener('toggle', function(){ ui.rOpen[k] = det.open; });
@@ -1933,13 +1964,14 @@ button.tile.lock{box-shadow:none;background:var(--chip)}
     var act = b.getAttribute('data-act'), id = b.getAttribute('data-id');
     if (act === 'rAdd') {
       ui.rEdit = {kind:kind, id:'new'}; ui.rdel = false; ui.cgEdit = null; ui.cg = null;
-      ui.rd = {name:'', category:'', amount:'', due:'', flex:'off', amount2:'', due2:'', fee1:'', fee2:''}; render();
+      ui.rd = {once:false, name:'', category:'', amount:'', due:'', flex:'off', amount2:'', due2:'', fee1:'', fee2:''}; render();
     }
     else if (act === 'rEdit') {
       var it = recurMap(kind)[id]; if (!it) return;
       ui.rEdit = {kind:kind, id:id}; ui.rd = recurDraft(it); ui.rdel = false; ui.cgEdit = null; ui.cg = null; render();
     }
     else if (act === 'rCancel') { ui.rEdit = null; ui.rd = null; ui.rdel = false; ui.cgEdit = null; ui.cg = null; render(); }
+    else if (act === 'rf-once') { if (ui.rd) ui.rd.once = !ui.rd.once; render(); }
     else if (act === 'rSave') saveRecur(kind);
     else if (act === 'rPause') {
       var cur = recurMap(kind)[id]; if (!cur) return;
@@ -2269,6 +2301,7 @@ button.tile.lock{box-shadow:none;background:var(--chip)}
     if (idx === curIdx) {
       var todayIso = isoToday();
       var over = collectUpcoming().filter(function(x){ return (x.kind === 'plan' || x.kind === 'debt') && x.date < todayIso; })
+        .concat(overdueOnceBills().filter(function(x){ return x.date < start; }))
         .sort(function(a, b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
       if (over.length) {
         var ovTot = 0; over.forEach(function(x){ ovTot += x.amount || 0; });
