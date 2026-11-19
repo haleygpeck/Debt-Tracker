@@ -706,6 +706,23 @@ button.tile.lock{box-shadow:none;background:var(--chip)}
   function chargesSum(p){ return (p.charges || []).reduce(function(s, x){ return s + (Number(x.amount) || 0); }, 0); }
   function isCC(p){ return !!(p && p.isDebt && (p.type || 'Credit card') === 'Credit card'); }
   function remaining(p){ return Math.max(0, r2((p.start||0) + chargesSum(p) - paidSum(p))); }
+  // a debt marked Low priority is left out of your total debt (it still has its own page, progress bar and payments)
+  function isLowDebt(id){ var c = cards[id]; return !!(c && c.priority === 'low'); }
+  // a Low debt with no scheduled payments entered stays out of Paycheck, Upcoming Payments and the monthly totals
+  function hiddenLow(p){ return !!(p && p.isDebt && p.priority === 'low' && !(p.sched || []).length); }
+  // what your Low debts owed on a past date (so the chart and heart treat them as never counted)
+  function lowBalAt(iso){
+    var t = 0;
+    Object.keys(cards).forEach(function(id){
+      var c = cards[id]; if (!c || c.priority !== 'low') return;
+      if (c.added && c.added > iso) return;
+      var dp = debtP(id), b = remaining(dp);
+      (dp.payments || []).forEach(function(x){ if (x.date && String(x.date).slice(0, 10) > iso) b += Number(x.amount) || 0; });
+      (dp.charges || []).forEach(function(x){ if (x.date && String(x.date).slice(0, 10) > iso) b -= Number(x.amount) || 0; });
+      t += Math.max(0, b);
+    });
+    return r2(t);
+  }
   function monthly(p){
     if (p.monthly > 0) return p.monthly;
     if (p.isDebt) {
@@ -1151,7 +1168,7 @@ button.tile.lock{box-shadow:none;background:var(--chip)}
     host.textContent = '';
     var arr = Object.keys(cards).map(function(id){ return {id:id, c:cards[id]}; });
     var total = 0, mins = 0, lim = 0, limBal = 0;
-    arr.forEach(function(x){ var c = x.c; total += c.balance || 0; mins += c.min || 0; if (c.limit > 0) { lim += c.limit; limBal += c.balance || 0; } });
+    arr.forEach(function(x){ var c = x.c; if (c.priority !== 'low') total += c.balance || 0; mins += c.min || 0; if (c.limit > 0) { lim += c.limit; limBal += c.balance || 0; } });
     var tf = ui.cf.types, pf = ui.cf.prios, anyT = Object.keys(tf).length, anyP = Object.keys(pf).length, allCount = arr.length;
     var dq = (ui.dq || '').trim().toLowerCase();
     arr = arr.filter(function(x){
@@ -1210,7 +1227,7 @@ button.tile.lock{box-shadow:none;background:var(--chip)}
     var type = e.type || 'Credit card', isCard = type === 'Credit card';
     var obj = {name:name, emoji:Array.from((e.emoji || '').trim()).slice(0, 3).join(''), type:type, balance:bal, limit:isCard ? pos(e.limit) : 0, orig:isCard ? 0 : pos(e.orig), apr:pos(e.apr), min:pos(e.min), due:e.due || '', priority:e.priority || '', updated:isoToday()};
     var isNew = ui.cardEdit === 'new';
-    if (isNew) { obj.start = bal; obj.payments = []; obj.sched = []; obj.charges = []; }
+    if (isNew) { obj.start = bal; obj.payments = []; obj.sched = []; obj.charges = []; obj.added = isoToday(); }
     else { var dpx = debtP(id) || {payments:[], charges:[]}; obj.start = r2(bal + paidSum(dpx) - chargesSum(dpx)); }
     enqueue(id, function(){ return isNew ? planRef(id).set(obj) : planRef(id).update(obj); });
     ui.cardEdit = null; ui.cd = null; ui.confirmDel = null; render();
@@ -1240,6 +1257,7 @@ button.tile.lock{box-shadow:none;background:var(--chip)}
     function addFrom(id, p, kind){
       if (!p || p.archived) return;
       if (kind === 'debt' && isCC(p)) return;
+      if (kind === 'debt' && hiddenLow(p)) return;
       var rem = remaining(p); if (rem <= 0.004) return;
       var sc = sched(p).filter(function(x){ return !isPaidS(p, x) && x.date && x.amount > 0; });
       if (sc.length) {
@@ -1326,7 +1344,7 @@ button.tile.lock{box-shadow:none;background:var(--chip)}
       });
     });
     if (!onlyPaid) Object.keys(cards).forEach(function(id){
-      var c = debtP(id); if (!isCC(c) || !c.due) return;
+      var c = debtP(id); if (!isCC(c) || !c.due || hiddenLow(c)) return;
       var crem = remaining(c); if (crem <= 0.004) return;
       var base = isoToLocal(c.due); if (!base) return;
       var camt = monthly(c) > 0 ? Math.min(monthly(c), crem) : 0;
@@ -1469,18 +1487,19 @@ button.tile.lock{box-shadow:none;background:var(--chip)}
     var first = pts[0], pays = [];
     function gather(o){ (o.payments || []).forEach(function(x){ if (x.date && x.amount > 0) pays.push({d:x.date, a:Number(x.amount)}); }); }
     Object.keys(plans).forEach(function(k){ if (!plans[k].archived) gather(plans[k]); });
-    Object.keys(cards).forEach(function(k){ gather(cards[k]); });
+    Object.keys(cards).forEach(function(k){ if (!isLowDebt(k)) gather(cards[k]); });
+    var firstT = Math.max(0, r2(first.t - lowBalAt(first.d)));
     var pre = pays.filter(function(x){ return x.d <= first.d; });
     var byDate = {};
     if (pre.length) {
       var dates = Array.from(new Set(pre.map(function(x){ return x.d; }))).sort();
-      var origin = r2(first.t + pre.reduce(function(sm, x){ return sm + x.a; }, 0));
+      var origin = r2(firstT + pre.reduce(function(sm, x){ return sm + x.a; }, 0));
       byDate[isoOf(new Date(isoToLocal(dates[0]).getTime() - 864e5))] = origin;
       dates.forEach(function(d){
-        byDate[d] = r2(first.t + pre.filter(function(x){ return x.d > d; }).reduce(function(sm, x){ return sm + x.a; }, 0));
+        byDate[d] = r2(firstT + pre.filter(function(x){ return x.d > d; }).reduce(function(sm, x){ return sm + x.a; }, 0));
       });
     }
-    pts.forEach(function(p){ byDate[p.d] = p.t; });
+    pts.forEach(function(p){ byDate[p.d] = Math.max(0, r2(p.t - lowBalAt(p.d))); });
     return Object.keys(byDate).sort().map(function(d){ return {d:d, t:byDate[d]}; });
   }
   var SVGNS = 'http://www.w3.org/2000/svg';
@@ -2073,7 +2092,7 @@ button.tile.lock{box-shadow:none;background:var(--chip)}
       var r = remaining(p); if (r > 0.004) affMo += Math.min(monthly(p), r);
     });
     Object.keys(cards).forEach(function(k){
-      var c = debtP(k), r = remaining(c); if (r > 0.004 && monthly(c) > 0) othMo += Math.min(monthly(c), r);
+      var c = debtP(k), r = remaining(c); if (r > 0.004 && !hiddenLow(c) && monthly(c) > 0) othMo += Math.min(monthly(c), r);
     });
     var rt = recurTotals();
     return {debt:affMo + othMo, bill:rt.bill.mo, sub:rt.sub.mo, tot:affMo + othMo + rt.bill.mo + rt.sub.mo};
@@ -2508,16 +2527,16 @@ var BADGE_IMG = {'fresh':'data:image/webp;base64,UklGRpZ0AABXRUJQVlA4WAoAAAAQAAA
   function dayDiff(a, b){ return Math.round((isoToLocal(b) - isoToLocal(a)) / 864e5); }
   function awardCtx(){
     var ad = awardsDoc || {}, c = ad.c || {}, pays = [];
-    function gather(o){ (o.payments || []).forEach(function(x){ if (x.date && Number(x.amount) > 0) pays.push({d:String(x.date).slice(0, 10), a:Number(x.amount), sid:x.sid || null, o:o}); }); }
+    function gather(o, low){ (o.payments || []).forEach(function(x){ if (x.date && Number(x.amount) > 0) pays.push({d:String(x.date).slice(0, 10), a:Number(x.amount), sid:x.sid || null, o:o, low:!!low}); }); }
     Object.keys(plans).forEach(function(k){ gather(plans[k]); });
-    Object.keys(cards).forEach(function(k){ gather(cards[k]); });
-    var series = buildSeries(), st = series.length ? series[0] : null, paid = 0;
-    if (st) pays.forEach(function(x){ if (x.d > st.d) paid += x.a; });
-    paid = r2(paid);
+    Object.keys(cards).forEach(function(k){ gather(cards[k], isLowDebt(k)); });
+    var series = buildSeries(), st = series.length ? series[0] : null, paid = 0, paidC = 0;
+    if (st) pays.forEach(function(x){ if (x.d > st.d) { paid += x.a; if (!x.low) paidC += x.a; } });
+    paid = r2(paid); paidC = r2(paidC);
     var start = st ? st.t : 0, cur = curTotalDebt();
     var x = {c:{hop:c.hop || 0, theme:c.theme || 0, dark:c.dark || 0, heart:c.heart || 0, menu:c.menu || 0, pcnav:c.pcnav || 0, trophy:c.trophy || 0, egg:c.egg || 0, backup:c.backup || 0, owl:c.owl, early:c.early, ny:c.ny, val:c.val, xmas:c.xmas, pals:c.pals || [], tabs:c.tabs || []}};
-    x.paid = paid; x.start = start; x.cur = cur;
-    x.pct = start > 0 ? Math.max(0, Math.min(1, paid / start)) : 0;
+    x.paid = paid; x.paidC = paidC; x.start = start; x.cur = cur;
+    x.pct = start > 0 ? Math.max(0, Math.min(1, paidC / start)) : 0;
     x.nPay = pays.length;
     var byDay = {}, onTime = 0, early7 = 0, dueDay = 0, biggest = 0, smallest = 0;
     pays.forEach(function(p){
@@ -2882,7 +2901,7 @@ var BADGE_IMG = {'fresh':'data:image/webp;base64,UklGRpZ0AABXRUJQVlA4WAoAAAAQAAA
   function curTotalDebt(){
     var t = 0;
     Object.keys(plans).forEach(function(k){ if (!plans[k].archived) t += remaining(plans[k]); });
-    Object.keys(cards).forEach(function(k){ t += remaining(debtP(k)); });
+    Object.keys(cards).forEach(function(k){ if (!isLowDebt(k)) t += remaining(debtP(k)); });
     return r2(t);
   }
   function heartCardEl(ctx){
@@ -2906,7 +2925,7 @@ var BADGE_IMG = {'fresh':'data:image/webp;base64,UklGRpZ0AABXRUJQVlA4WAoAAAAQAAA
     if (!cheerText) cheerText = nextCheer();
     var kids = [h('div',{class:'hrow'}, svg, h('div',{class:'hside'}, h('div',{class:'hpct',text:(Math.round(pct * 1000) / 10) + '%'}), h('div',{class:'hcheer',text:cheerText})))];
     if (next) {
-      var ratio = Math.max(0, Math.min(1, (pct - prev) / (next[0] - prev))), toGo = Math.max(0, next[0] * start - ctx.paid);
+      var ratio = Math.max(0, Math.min(1, (pct - prev) / (next[0] - prev))), toGo = Math.max(0, next[0] * start - ctx.paidC);
       var nb = BADGES.filter(function(bd){ return bd.id === 'h' + Math.round(next[0] * 100); })[0];
       kids.push(h('div',{class:'hnextbox'},
         h('div',{class:'hnextrow2'},
@@ -2929,8 +2948,9 @@ var BADGE_IMG = {'fresh':'data:image/webp;base64,UklGRpZ0AABXRUJQVlA4WAoAAAAQAAA
       if (r > 0.004) { affN++; affMo += Math.min(monthly(p), r); }
     });
     Object.keys(cards).forEach(function(k){
-      var c = debtP(k), r = remaining(c); oth += r;
-      if (r > 0.004) { othN++; if (monthly(c) > 0) othMo += Math.min(monthly(c), r); }
+      var c = debtP(k), r = remaining(c);
+      if (c.priority !== 'low') { oth += r; if (r > 0.004) othN++; }
+      if (r > 0.004 && !hiddenLow(c) && monthly(c) > 0) othMo += Math.min(monthly(c), r);
     });
     var rt = recurTotals();
     function navCard(emoji, title, big, sub, tab){
@@ -2989,7 +3009,7 @@ var BADGE_IMG = {'fresh':'data:image/webp;base64,UklGRpZ0AABXRUJQVlA4WAoAAAAQAAA
   function render(){
     var g = $('#grand'), aff = 0, oth = 0;
     Object.keys(plans).forEach(function(k){ if (!plans[k].archived) aff += remaining(plans[k]); });
-    Object.keys(cards).forEach(function(k){ oth += Number(cards[k].balance) || 0; });
+    Object.keys(cards).forEach(function(k){ if (!isLowDebt(k)) oth += Number(cards[k].balance) || 0; });
     g.textContent = '';
     g.appendChild(h('div',{class:'k',text:'Total debt'}));
     g.appendChild(h('div',{class:'v',text:money(r2(aff + oth))}));
